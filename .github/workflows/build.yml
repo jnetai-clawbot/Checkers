@@ -63,28 +63,28 @@ jobs:
         with:
           tag_name: ${{ env.TAG }}
           name: Checkers ${{ env.TAG }}
-body: |
-                ## Checkers ${{ env.TAG }}
+          body: |
+            ## Checkers ${{ env.TAG }}
 
-                ### Features
-                - Play vs AI (Easy / Medium / Hard), fully offline
-                - 2 Player mode on the same device, fully offline
-                - Online multiplayer - peer to peer via share code or QR scanning
-                - Worldwide rules: UK / Europe (default), US / American, International
-                - Configurable per-player timer (3 / 5 / 10 minutes)
-                - High Score board - fewest moves & fastest time ranks highest
-                - Dark professional theme, works on Samsung S8+ and Pixel 6+
-                - Made by jnetai.com
+            ### Features
+            - Play vs AI (Easy / Medium / Hard), fully offline
+            - 2 Player mode on the same device, fully offline
+            - Online multiplayer - peer to peer via share code or QR scanning
+            - Worldwide rules: UK / Europe (default), US / American, International
+            - Configurable per-player timer (3 / 5 / 10 minutes)
+            - High Score board - fewest moves & fastest time ranks highest
+            - Dark professional theme, works on Samsung S8+ and Pixel 6+
+            - Made by jnetai.com
 
-                ### v1.1.0 - Accurate UK English Draughts
-                - Default UK / Europe preset now plays genuine English draughts
-                - Non-flying kings (one square, move/capture forwards and backwards)
-                - Captures must be on an adjacent square (no gap/flying capture)
-                - Compulsory captures, multi-capture, promotion ends the turn
-                - No International maximum-capture rule in the default rules
+            ### v1.1.0 - Accurate UK English Draughts
+            - Default UK / Europe preset now plays genuine English draughts
+            - Non-flying kings (one square, move/capture forwards and backwards)
+            - Captures must be on an adjacent square (no gap/flying capture)
+            - Compulsory captures, multi-capture, promotion ends the turn
+            - No International maximum-capture rule in the default rules
 
-                ### Download
-                Grab the APK from the assets below.
+            ### Download
+            Grab the APK from the assets below.
           files: |
             ${{ env.APK }}
           draft: false
