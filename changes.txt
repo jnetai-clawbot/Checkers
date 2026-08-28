@@ -1,0 +1,48 @@
+# Checkers — Changes
+
+## v1.0.0 (2026-08-28)
+
+Initial release. First fully working version (full dark-theme Checkers game).
+
+### Features
+- Three game modes:
+  - **Play vs AI** — fully offline computer opponent
+  - **2 Player** — pass & play on the same device, fully offline
+  - **Online Multiplayer** — direct peer-to-peer matchmaking using a share
+    code (copy / share sheet / QR code to scan), raw TCP transport.
+- **Settings**
+  - AI difficulty: Easy / Medium / Hard
+  - Worldwide rules presets:
+    - **UK / Europe (default)** — English draughts (8x8, men jump forward,
+      flying kings, mandatory capture)
+    - US / American — 8x8, kings move one square, mandatory capture
+    - International — 10x10, men capture forward & backward, flying kings,
+      majority capture
+  - Per-player timer (off / 3 / 5 / 10 minutes)
+  - Sound effects toggle
+- **High Score board** (viewable from the main menu):
+  - Recorded when you beat the AI; player can enter their name
+  - Fewest moves = higher score; a faster time boosts the score when timed;
+    time shown when a timer is used
+  - Top 10 persisted locally (offline)
+- **About section**
+  - "Made by jnetai.com"
+  - Full version number (matches GitHub release tag v1.0.0)
+  - Check for update (GitHub API, with graceful fall-back to the release
+    page if the check ever fails)
+  - Share App button
+- AI engine: negamax with alpha-beta pruning (depth 8 on Hard), offline only.
+- Persistent error handling / logging: `ErrorLogger` (E-CODE-###), global
+  uncaught-exception handler, logging kept permanently integrated in the code.
+- Dark professional theme, centred layout, safe bottom spacing so controls are
+  not cut off.
+- Compatible with Samsung S8+ (minSdk 24) and Pixel 6+.
+
+### Build / release
+- Built and signed on GitHub Actions only (never locally).
+- Pushed to its own repository: `jnetai-clawbot/Checkers`.
+- Release triggers on tag push (`v*`), tagged `v1.0.0`.
+- Uses its own dedicated keystore (`checkers-keystore.jks`) so future updates
+  install over the top without uninstall. Keystore credentials in the local
+  password vault and GitHub repo secrets.
+- Final APK downloaded into `apk/` and `android/apk/`.
