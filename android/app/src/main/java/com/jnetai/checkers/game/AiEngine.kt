@@ -62,8 +62,10 @@ object AiEngine {
         var alpha = Int.MIN_VALUE
         val beta = Int.MAX_VALUE
 
-        val ordered = legal.sortedWith(compareByDescending<Move> { it.isJump })
-            .thenByDescending { it.captured.size }
+        val ordered = legal.sortedWith(
+            compareByDescending<Move> { it.isJump }
+                .thenByDescending { it.captured.size }
+        )
 
         for (move in ordered) {
             val applied = engine.applyMove(move)
@@ -116,8 +118,10 @@ object AiEngine {
             return if (player == aiPlayer) -WIN_SCORE - depth else WIN_SCORE + depth
         }
 
-        val ordered = moves.sortedWith(compareByDescending<Move> { it.isJump })
-            .thenByDescending { it.captured.size }
+        val ordered = moves.sortedWith(
+            compareByDescending<Move> { it.isJump }
+                .thenByDescending { it.captured.size }
+        )
 
         var best = Int.MIN_VALUE
         val state = engine.saveState()
