@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Checkers" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/accent_gold</item>
+        <item name="colorPrimaryDark">@color/accent_gold_dark</item>
+        <item name="colorAccent">@color/accent_gold</item>
+        <item name="colorControlNormal">@color/text_secondary</item>
+        <item name="colorControlActivated">@color/accent_gold</item>
+        <item name="colorControlHighlight">@color/accent_gold</item>
+        <item name="android:colorBackground">@color/background_dark</item>
+        <item name="android:windowBackground">@color/background_dark</item>
+        <item name="android:statusBarColor">@color/background_dark</item>
+        <item name="android:navigationBarColor">@color/background_dark</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:buttonStyle">@style/CheckersButton</item>
+        <item name="android:editTextStyle">@style/CheckersEditText</item>
+        <item name="alertDialogTheme">@style/Theme.Checkers_Dialog</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.Checkers_Dialog" parent="Theme.AppCompat.DayNight.Dialog.Alert">
+        <item name="android:background">@color/surface_dark</item>
+        <item name="android:windowBackground">@color/surface_dark</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="colorAccent">@color/accent_gold</item>
+        <item name="buttonBarPositiveButtonStyle">@style/CheckersButton_Dialog</item>
+        <item name="buttonBarNegativeButtonStyle">@style/CheckersButton_Dialog</item>
+    </style>
+
+    <style name="CheckersButtonPrimary" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_primary_bg</item>
+        <item name="android:textColor">@color/button_primary_text</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:elevation">2dp</item>
+    </style>
+
+    <style name="CheckersButton" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_secondary_bg</item>
+        <item name="android:textColor">@color/button_secondary_text</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:elevation">1dp</item>
+    </style>
+
+    <style name="CheckersButtonDanger" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/button_danger_bg</item>
+        <item name="android:textColor">@color/button_danger_text</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:elevation">2dp</item>
+    </style>
+
+    <style name="CheckersButton_Dialog" parent="Widget.AppCompat.Button.ButtonBar.AlertDialog">
+        <item name="android:textColor">@color/accent_gold</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="CheckersEditText" parent="Widget.AppCompat.EditText">
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_disabled</item>
+        <item name="android:background">@drawable/edit_text_background</item>
+    </style>
+
+    <style name="CheckersSwitch" parent="Widget.AppCompat.CompoundButton.Switch">
+        <item name="android:thumbTint">@color/accent_gold</item>
+        <item name="android:trackTint">@color/text_secondary</item>
+    </style>
+
+    <style name="TitleTextStyle">
+        <item name="android:textSize">30sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0.05</item>
+    </style>
+
+    <style name="SubtitleTextStyle">
+        <item name="android:textSize">14sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+</resources>

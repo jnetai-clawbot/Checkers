@@ -1,0 +1,85 @@
+name: Build & Release Checkers APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          accept-android-sdk-licenses: true
+          packages: 'platforms;android-34 build-tools;34.0.0'
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/checkers-keystore.jks
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/android/checkers-keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp android/app/build/outputs/apk/release/app-release.apk "Checkers-v${VERSION}.apk"
+          ls -lh Checkers-v${VERSION}.apk
+          echo "APK=Checkers-v${VERSION}.apk" >> $GITHUB_ENV
+          echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Checkers-APK
+          path: ${{ env.APK }}
+          retention-days: 90
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Checkers ${{ env.TAG }}
+          body: |
+            ## Checkers ${{ env.TAG }}
+
+            ### Features
+            - Play vs AI (Easy / Medium / Hard), fully offline
+            - 2 Player mode on the same device, fully offline
+            - Online multiplayer - peer to peer via share code or QR scanning
+            - Worldwide rules: UK / Europe (default), US / American, International
+            - Configurable per-player timer (3 / 5 / 10 minutes)
+            - High Score board - fewest moves & fastest time ranks highest
+            - Dark professional theme, works on Samsung S8+ and Pixel 6+
+            - Made by jnetai.com
+
+            ### Download
+            Grab the APK from the assets below.
+          files: |
+            ${{ env.APK }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}

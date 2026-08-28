@@ -1,0 +1,19 @@
+# Gradle / Android
+.gradle/
+build/
+local.properties
+*.iml
+.idea/
+captures/
+*.apk
+!apk/.gitkeep
+*.jks
+!android/checkers-keystore.jks.example
+*.idsig
+
+# OS
+.DS_Store
+
+# Local secrets (never commit)
+android/app/keystore.jks
+android/local.properties

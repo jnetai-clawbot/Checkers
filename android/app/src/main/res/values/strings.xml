@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Checkers</string>
+
+    <string name="menu_play_ai">Play vs AI</string>
+    <string name="menu_play_2p">2 Player</string>
+    <string name="menu_play_online">Online Multiplayer</string>
+    <string name="menu_high_scores">High Scores</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_about">About</string>
+
+    <string name="high_scores">High Scores</string>
+    <string name="high_scores_empty">No scores yet.\nBeat the AI to appear here!</string>
+
+    <string name="settings">Settings</string>
+    <string name="about">About</string>
+
+    <string name="settings_ai_difficulty">AI Difficulty</string>
+    <string name="settings_rules">Game Rules</string>
+    <string name="settings_timer">Timer</string>
+    <string name="difficulty_easy">Easy</string>
+    <string name="difficulty_medium">Medium</string>
+    <string name="difficulty_hard">Hard</string>
+    <string name="rules_uk">UK / Europe (default)</string>
+    <string name="rules_uk_desc">8x8 board. Men jump forward only, kings fly, capture is mandatory.</string>
+    <string name="rules_us">US / American</string>
+    <string name="rules_us_desc">8x8 board. Men move forward, kings are limited to one square per move, capture is mandatory.</string>
+    <string name="rules_international">International (World)</string>
+    <string name="rules_international_desc">10x10 board. Men jump forward and backward, flying kings, capture the maximum number.</string>
+    <string name="timer_off">Off</string>
+    <string name="timer_3m">3 min per player</string>
+    <string name="timer_5m">5 min per player</string>
+    <string name="timer_10m">10 min per player</string>
+
+    <string name="game_status_your_turn">Your turn — %1$s</string>
+    <string name="game_status_ai_turn">AI is thinking…</string>
+    <string name="game_status_white_turn">White to move</string>
+    <string name="game_status_black_turn">Black to move</string>
+    <string name="game_you_won">You win! 🎉</string>
+    <string name="game_you_lost">AI wins!</string>
+    <string name="game_white_wins">White wins!</string>
+    <string name="game_black_wins">Black wins!</string>
+    <string name="game_draw">Draw</string>
+    <string name="game_time_up">Time up — %1$s</string>
+    <string name="new_game">New Game</string>
+    <string name="undo">Undo</string>
+    <string name="hint">Hint</string>
+    <string name="resign">Resign</string>
+    <string name="back_to_menu">Menu</string>
+
+    <string name="online_host">Host a game</string>
+    <string name="online_join">Join a game</string>
+    <string name="online_share_code">Share code</string>
+    <string name="online_qr_share">Show QR</string>
+    <string name="online_qr_scan">Scan QR</string>
+    <string name="online_waiting">Waiting for opponent…</string>
+    <string name="online_connected">Connected!</string>
+    <string name="online_cancel">Cancel</string>
+    <string name="online_enter_code_hint">Enter 6-character share code</string>
+    <string name="online_copy_code">Copy code</string>
+    <string name="online_share">Share code with opponent</string>
+
+    <string name="about_version">Version %1$s</string>
+    <string name="about_developer">Made by jnetai.com</string>
+    <string name="check_for_update">Check for update</string>
+    <string name="share_app">Share App</string>
+    <string name="visit_site">Visit jnetai.com</string>
+    <string name="update_available">Update available: %1$s</string>
+    <string name="no_update">You are up to date (v%1$s)</string>
+    <string name="download_update">Open release page</string>
+
+    <string name="enter_name_hint">Enter your name for the High Score board</string>
+    <string name="your_score_is">Your score: %1$d</string>
+    <string name="save_score">Save Score</string>
+    <string name="unknow_net_error">Unknown network error</string>
+
+    <string name="score_moves">%1$d moves</string>
+    <string name="score_time">%1$s</string>
+
+    <string name="permission_camera">Camera permission is needed to scan QR codes.</string>
+    <string name="no_winner_draw">The game is a draw.</string>
+
+    <string name="tag_p2p_host_fail">E-P2P-HOST-FAIL</string>
+</resources>

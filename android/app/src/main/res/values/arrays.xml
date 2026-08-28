@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="timer_options">
+        <item>Off</item>
+        <item>3 min per player</item>
+        <item>5 min per player</item>
+        <item>10 min per player</item>
+    </string-array>
+</resources>

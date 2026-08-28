@@ -1,0 +1,14 @@
+Checkers
+
+Android game called Checkers
+
+
+
+Project Location /home/jay/Documents/Scripts/AI/openclaw/Android-Apps/Checkers/
+
+
+
+
+
+
+
