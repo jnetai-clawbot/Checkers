@@ -75,8 +75,8 @@ data class GeneratedMoves(
 /**
  * Game rule presets from around the world.
  *
- * - UK / EUROPE (default): 8x8 board, men capture forward only, flying kings,
- *   mandatory capture.
+ * - UK / EUROPE (default): English Draughts, 8x8 board, men capture forward
+ *   only, non-flying kings (one square in any direction), mandatory capture.
  * - US / AMERICAN: 8x8 board, men capture forward only, kings move one square,
  *   mandatory capture.
  * - INTERNATIONAL: 10x10 board, men capture forward AND backward, flying kings,
@@ -89,9 +89,9 @@ enum class RulePreset(
     val menCaptureBackward: Boolean,
     val majorityCapture: Boolean
 ) {
-    UK_EUROPE("UK / Europe", 8, true, false, false) {
+    UK_EUROPE("UK / Europe", 8, false, false, false) {
         override fun describe(): String =
-            "English draughts: 8x8, men jump forward only, flying kings, capture is mandatory."
+            "English draughts: 8x8, men jump forward only, kings move one square in any direction, capture is mandatory."
     },
     US_AMERICAN("US / American", 8, false, false, false) {
         override fun describe(): String =

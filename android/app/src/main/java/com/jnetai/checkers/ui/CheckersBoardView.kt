@@ -39,6 +39,12 @@ class CheckersBoardView @JvmOverloads constructor(
     private var selectableSquares: MutableSet<Int> = mutableSetOf()
     private val moveByTarget: MutableMap<Int, Move> = mutableMapOf()
 
+    /** Pieces of the interactive side that have at least one legal move right now. */
+    private var selectablePieces: MutableSet<Int> = mutableSetOf()
+
+    /** True when the interactive side is under a compulsory capture. */
+    private var captureMandatory = false
+
     private val lightPaint = Paint().apply { color = Color.rgb(240, 217, 181) }
     private val darkPaint = Paint().apply { color = Color.rgb(181, 136, 99) }
     private val darkAltPaint = Paint().apply { color = Color.rgb(165, 113, 78) }
@@ -78,6 +84,16 @@ class CheckersBoardView @JvmOverloads constructor(
         strokeWidth = 6f
         color = Color.rgb(255, 193, 7)
     }
+    private val movableRingPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 5f
+        color = Color.rgb(0, 200, 235)
+    }
+    private val captureRingPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 7f
+        color = Color.rgb(255, 96, 96)
+    }
     private val boardBgPaint = Paint().apply { color = Color.rgb(27, 27, 27) }
 
     private var squareSize = 0f
@@ -111,6 +127,7 @@ class CheckersBoardView @JvmOverloads constructor(
         selectedSquare = null
         selectableSquares = mutableSetOf()
         moveByTarget.clear()
+        selectablePieces = mutableSetOf()
     }
 
     fun refresh() {
@@ -123,10 +140,13 @@ class CheckersBoardView @JvmOverloads constructor(
         val player = interactivePlayer ?: return
         moveByTarget.clear()
         selectableSquares = mutableSetOf()
+        selectablePieces = mutableSetOf()
 
         try {
-            val moves = g.generateMoves(player).allLegal
-            for (m in moves) {
+            val gen = g.generateMoves(player)
+            captureMandatory = gen.hasCapture
+            for (m in gen.allLegal) {
+                selectablePieces.add(m.from)
                 selectableSquares.add(m.to)
                 for (landing in m.path) {
                     moveByTarget[landing] = m
@@ -225,6 +245,16 @@ class CheckersBoardView @JvmOverloads constructor(
         canvas.drawCircle(cx, cy, radius, fill)
         canvas.drawCircle(cx, cy, radius, edge)
 
+        if (sq in selectablePieces) {
+            // Only pieces with a legal move are selectable. Show a red ring when
+            // a capture is compulsory, otherwise a subtle blue ring.
+            if (captureMandatory) {
+                canvas.drawCircle(cx, cy, radius + 3f, captureRingPaint)
+            } else {
+                canvas.drawCircle(cx, cy, radius + 2f, movableRingPaint)
+            }
+        }
+
         if (GameDefs.isKing(piece)) {
             // Simple crown marker: inner ring plus a highlight dot.
             canvas.drawCircle(cx, cy, radius * 0.55f, kingMarkPaint)
@@ -274,14 +304,18 @@ class CheckersBoardView @JvmOverloads constructor(
             return
         }
 
-        // Select / reselect own piece.
+        // Select / reselect own piece. A piece with no legal move in the
+        // current position (e.g. one that cannot capture while a capture is
+        // compulsory) cannot be selected.
         val piece = g.pieceAt(sq)
         if (piece != GameDefs.EMPTY && GameDefs.owner(piece) == player) {
             if (selectedSquare == sq) {
                 clearSelection()
-            } else {
+            } else if (sq in selectablePieces) {
                 selectedSquare = sq
                 rebuildTargetsFor(piece)
+            } else {
+                clearSelection()
             }
             invalidate()
             return
@@ -299,8 +333,9 @@ class CheckersBoardView @JvmOverloads constructor(
         moveByTarget.clear()
         selectableSquares = mutableSetOf()
 
-        val moves = g.generateMoves(player).allLegal
-        for (m in moves) {
+        val gen = g.generateMoves(player)
+        captureMandatory = gen.hasCapture
+        for (m in gen.allLegal) {
             if (m.from != sel) continue
             for (landing in m.path) {
                 moveByTarget[landing] = m

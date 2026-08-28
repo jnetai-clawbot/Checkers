@@ -23,7 +23,7 @@
     <string name="difficulty_medium">Medium</string>
     <string name="difficulty_hard">Hard</string>
     <string name="rules_uk">UK / Europe (default)</string>
-    <string name="rules_uk_desc">8x8 board. Men jump forward only, kings fly, capture is mandatory.</string>
+    <string name="rules_uk_desc">8x8 board. Men jump forward only, kings move one square in any direction, capture is mandatory.</string>
     <string name="rules_us">US / American</string>
     <string name="rules_us_desc">8x8 board. Men move forward, kings are limited to one square per move, capture is mandatory.</string>
     <string name="rules_international">International (World)</string>

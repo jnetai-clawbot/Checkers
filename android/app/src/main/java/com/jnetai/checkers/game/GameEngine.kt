@@ -15,7 +15,7 @@ class GameEngine(val rules: RulePreset) {
     private val board: IntArray = IntArray(size * size)
 
     var currentPlayer: Int = GameDefs.BLACK
-        private set
+        internal set
 
     /** Total number of completed ply (half-moves). */
     var moveCount: Int = 0
@@ -192,24 +192,45 @@ class GameEngine(val rules: RulePreset) {
             // For a man the capture must move forward unless backward captures enabled.
             if (!isKingPiece && !rules.menCaptureBackward && dr != manForwardDr) continue
 
-            var nr = r + dr
-            var nc = c + dc
-            var enemySq = -1
-            while (inBounds(nr, nc)) {
-                val cell = working[idx(nr, nc)]
-                if (cell != GameDefs.EMPTY) {
-                    if (enemySq < 0 && GameDefs.owner(cell) != owner) {
-                        enemySq = idx(nr, nc)
-                    } else {
-                        break // blocked by a friendly piece or a second enemy
+            if (rules.flyingKings) {
+                // Flying kings: the first occupied piece along the ray must be an
+                // enemy; every empty square beyond it is a legal landing square.
+                var nr = r + dr
+                var nc = c + dc
+                while (inBounds(nr, nc)) {
+                    val enemySq = idx(nr, nc)
+                    val cell = working[enemySq]
+                    if (cell != GameDefs.EMPTY) {
+                        if (GameDefs.owner(cell) != owner) {
+                            var lr = nr + dr
+                            var lc = nc + dc
+                            while (inBounds(lr, lc) && working[idx(lr, lc)] == GameDefs.EMPTY) {
+                                targets.add(Pair(idx(lr, lc), enemySq))
+                                lr += dr
+                                lc += dc
+                            }
+                        }
+                        break
                     }
-                } else if (enemySq >= 0) {
-                    // Empty square beyond an enemy => capture landing.
-                    targets.add(Pair(idx(nr, nc), enemySq))
-                    if (!rules.flyingKings) break
+                    nr += dr
+                    nc += dc
                 }
-                nr += dr
-                nc += dc
+            } else {
+                // Non-flying (men and kings): the enemy must sit on the immediately
+                // adjacent diagonal square and the landing square must be empty.
+                val enemyR = r + dr
+                val enemyC = c + dc
+                if (!inBounds(enemyR, enemyC)) continue
+                val enemySq = idx(enemyR, enemyC)
+                val cell = working[enemySq]
+                if (cell == GameDefs.EMPTY || GameDefs.owner(cell) == owner) continue
+                val landingR = enemyR + dr
+                val landingC = enemyC + dc
+                if (!inBounds(landingR, landingC)) continue
+                val landingSq = idx(landingR, landingC)
+                if (working[landingSq] == GameDefs.EMPTY) {
+                    targets.add(Pair(landingSq, enemySq))
+                }
             }
         }
 
@@ -240,8 +261,7 @@ class GameEngine(val rules: RulePreset) {
                 // English rule: a man reaching the back row during a jump stops and promotes.
                 out.add(Move(origin, nextPath, nextCaptured))
             } else {
-                val promotedPiece = if (promotesNow) GameDefs.makeKing(piece) else piece
-                recJump(origin, landing, promotedPiece, nextCaptured, nextPath, out, nextBoard)
+                recJump(origin, landing, piece, nextCaptured, nextPath, out, nextBoard)
             }
         }
     }
@@ -254,7 +274,8 @@ class GameEngine(val rules: RulePreset) {
         val player = currentPlayer
         val gen = generateMoves(player)
         val valid = gen.allLegal.any {
-            it.from == move.from && it.path == move.path
+            it.from == move.from && it.path == move.path &&
+                    it.captured == move.captured
         }
         if (!valid) {
             ErrorLogger.logf(ErrorLogger.Codes.GMB_APPLY_INVALID,

@@ -1,5 +1,45 @@
 # Checkers — Changes
 
+## v1.1.0 (2026-08-28)
+
+Rules audit: the default **UK / Europe** preset now plays accurate **UK English
+Draughts**.
+
+### Rule fixes
+- **Non-flying kings**: the UK preset previously used flying kings (kings could
+  slide any distance when moving and capture across gaps). Kings now move and
+  capture exactly one square, forwards and backwards.
+- **Adjacent-capture only**: captures no longer jump across an empty gap. A man
+  or non-flying king must have the enemy on the immediately adjacent diagonal
+  square and an empty landing square beyond it.
+- Captures remain **compulsory**; when a capture exists the only selectable and
+  valid moves are captures.
+- **No maximum-capture rule**: players may choose any legal capture path even if
+  a longer chain exists (International "capture the maximum" remains a separate
+  preset).
+- **Multi-capture**: chain captures are applied atomically as one move so a piece
+  stays locked in its capture sequence, the turn does not switch mid-chain, and
+  truncated/partial chains are rejected by the engine.
+- **Promotion ends the capture turn**: a man crowned on the back row during a
+  capture stops immediately.
+- **Men move/capture forward only**; kings move and capture forwards and
+  backwards; kings never fly.
+- Win conditions: zero pieces or no legal moves loses. Draws are not declared
+  merely because no capture is available (only the 40-move rule style limits
+  remain).
+
+### UI (CheckersBoardView)
+- Only pieces with a legal move are selectable.
+- When a capture is compulsory the capturing pieces are ringed in red; movable
+  (non-capturing) pieces get a subtle blue ring.
+- A piece with no move cannot be selected, so a mandatory capture can never be
+  ignored on the board.
+
+### Tests
+- Added `GameEngineTest` (31 JUnit cases) covering board setup, men, captures,
+  multi-captures, kings, promotion, capture priority, win/draw, AI conformance
+  and server-side (engine) move validation.
+
 ## v1.0.0 (2026-08-28)
 
 Initial release. First fully working version (full dark-theme Checkers game).
@@ -14,7 +54,7 @@ Initial release. First fully working version (full dark-theme Checkers game).
   - AI difficulty: Easy / Medium / Hard
   - Worldwide rules presets:
     - **UK / Europe (default)** — English draughts (8x8, men jump forward,
-      flying kings, mandatory capture)
+      non-flying kings, mandatory capture, no maximum-capture rule)
     - US / American — 8x8, kings move one square, mandatory capture
     - International — 10x10, men capture forward & backward, flying kings,
       majority capture
