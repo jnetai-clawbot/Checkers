@@ -326,6 +326,9 @@ class GameEngine(val rules: RulePreset) {
 
     fun snapshotBoard(): IntArray = board.copyOf()
 
+    /** Read access to the live board array (AI evaluation read-only usage). */
+    fun boardFacade(): IntArray = board
+
     fun restoreBoard(snapshot: IntArray) {
         if (snapshot.size != board.size) {
             ErrorLogger.logf(ErrorLogger.Codes.GMB_RESTORE_MISMATCH,

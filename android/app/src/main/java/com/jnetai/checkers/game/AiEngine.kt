@@ -148,7 +148,7 @@ object AiEngine {
             val advancement: Int
 
             when (p) {
-                GameDefs.WHITE_MAN, GameDefs.BLACK_MAN -> {
+                GameDefs.BLACK, GameDefs.WHITE -> {
                     value = if (owner == GameDefs.BLACK) VAL_BLACK_MAN else VAL_WHITE_MAN
                     val row = sq / size
                     val distanceToPromote = if (owner == GameDefs.BLACK) row else (size - 1 - row)
