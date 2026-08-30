@@ -10,6 +10,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -25,7 +26,6 @@ import com.jnetai.checkers.utils.ErrorLogger
 import com.jnetai.checkers.utils.HighScoreStore
 import com.jnetai.checkers.utils.SettingsManager
 import com.jnetai.checkers.utils.SoundEffects
-import java.util.Random
 import java.util.concurrent.Executors
 
 /**
@@ -45,12 +45,27 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
 
         const val MSG_NEWGAME = "NEWGAME"
         const val STATE_PREFIX = "STATE"
+        const val MSG_REMATCH = "REMATCH"
+        const val MSG_CHAT = "CHAT"
+        const val MSG_QUIT = "QUIT_SESSION"
 
-        // AI realism: minimum "thinking" time before the AI replies and the
-        // time it takes the animated piece to glide across the board.
-        private const val AI_MIN_THINK_MS = 1600L
-        private const val AI_THINK_JITTER_MS = 1400L
+        // AI realism: time it takes the animated piece to glide across one hop
+        // of the board. The "thinking" delay before each AI reply is a user
+        // setting (0-3 seconds, see SettingsManager).
         private const val AI_MOVE_ANIM_MS_PER_HOP = 650L
+
+        // Set when the local player ends an online match via "Quit session",
+        // so OnlineActivity lets them back onto the pairing screen instead of
+        // auto-finishing because a game had been started earlier.
+        @Volatile
+        var sessionReturnToMultiplayer = false
+
+        @JvmStatic
+        fun consumeSessionReturnToMultiplayer(): Boolean {
+            val v = sessionReturnToMultiplayer
+            sessionReturnToMultiplayer = false
+            return v
+        }
 
         private var highScorePlayerName = ""
     }
@@ -98,6 +113,14 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
     // Undo history (AI / 2P only).
     private val history = ArrayDeque<GameEngine.EngineState>()
     private var gameOver = false
+
+    // Online end-of-session state (rematch / chat / quit).
+    private var rematchRequested = false
+    private var peerRematchRequested = false
+    private var endDialog: AlertDialog? = null
+    private var chatDialog: AlertDialog? = null
+    private var chatLog: MutableList<String> = mutableListOf()
+    private var chatLogView: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -284,37 +307,53 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         val diff: AiDifficulty = settingsManager.getAiDifficulty()
         aiExecutor.execute {
             val chosen: Move? = AiEngine.chooseMove(engine, GameDefs.WHITE, diff)
-            // Make the AI "think" for a short, human-feeling while so the move
-            // isn't instant and the player notices what happened.
-            val elapsed = System.currentTimeMillis() - aiThinkStart
-            val desiredThink = AI_MIN_THINK_MS + Random().nextInt(AI_THINK_JITTER_MS.toInt() + 1)
-            val wait = maxOf(0L, desiredThink - elapsed)
+            // The "thinking" pause is a user setting (0 = instant, otherwise
+            // the AI waits that long then glides its piece across the board).
+            val thinkMs = settingsManager.getAiThinkSeconds() * 1000L
+            if (thinkMs <= 0) {
+                uiHandler.post {
+                    if (isDestroyed || isFinishing) return@post
+                    applyAiMove(chosen, animate = false)
+                }
+            } else {
+                val wait = maxOf(0L, thinkMs - (System.currentTimeMillis() - aiThinkStart))
+                uiHandler.postDelayed({
+                    if (isDestroyed || isFinishing) return@postDelayed
+                    applyAiMove(chosen, animate = true)
+                }, wait)
+            }
+        }
+    }
 
-            uiHandler.postDelayed({
-                if (isDestroyed || isFinishing) return@postDelayed
-                if (chosen == null) {
-                    boardView.setLocked(false)
-                    val r = engine.getResult()
-                    if (r != GameDefs.EMPTY) handleGameOver(r)
-                    return@postDelayed
-                }
-                val state = engine.saveState()
-                val captured = engine.applyMove(chosen)
-                if (captured == null) {
-                    boardView.setLocked(false)
-                    return@postDelayed
-                }
-                history.addLast(state)
-                if (history.size > 400) history.removeFirst()
+    /** Apply a computed AI move; glides slowly when [animate] is true. */
+    private fun applyAiMove(chosen: Move?, animate: Boolean) {
+        if (chosen == null) {
+            boardView.setLocked(false)
+            val r = engine.getResult()
+            if (r != GameDefs.EMPTY) handleGameOver(r)
+            return
+        }
+        val state = engine.saveState()
+        val captured = engine.applyMove(chosen)
+        if (captured == null) {
+            boardView.setLocked(false)
+            return
+        }
+        history.addLast(state)
+        if (history.size > 400) history.removeFirst()
 
-                // Glide the piece smoothly to its destination, then finalise.
-                boardView.highlightedSquares = listOf(chosen.from, chosen.to)
-                boardView.animateAiMove(chosen, AI_MOVE_ANIM_MS_PER_HOP) {
-                    if (isDestroyed || isFinishing) return@animateAiMove
-                    boardView.setLocked(false)
-                    onMovePlayed(chosen, chosen.isJump)
-                }
-            }, wait)
+        // Glide the piece smoothly to its destination, then finalise.
+        boardView.highlightedSquares = listOf(chosen.from, chosen.to)
+        if (animate) {
+            boardView.animateAiMove(chosen, AI_MOVE_ANIM_MS_PER_HOP) {
+                if (isDestroyed || isFinishing) return@animateAiMove
+                boardView.setLocked(false)
+                onMovePlayed(chosen, chosen.isJump)
+            }
+        } else {
+            boardView.setLocked(false)
+            boardView.refresh()
+            onMovePlayed(chosen, chosen.isJump)
         }
     }
 
@@ -330,10 +369,26 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
 
     override fun onMoveReceived(data: String) {
         uiHandler.post {
-            if (gameOver) return@post
             if (data == MSG_NEWGAME) {
+                if (gameOver) return@post
                 resetGame()
                 Toast.makeText(this, "Opponent started a new game", Toast.LENGTH_SHORT).show()
+                return@post
+            }
+            // End-of-session: one side wants a rematch.
+            if (data == MSG_REMATCH) {
+                handleRematchRequested()
+                return@post
+            }
+            // Chat message (only exchanged after a match finishes).
+            if (data.startsWith("$MSG_CHAT|")) {
+                handleChatReceived(data.removePrefix("$MSG_CHAT|"))
+                return@post
+            }
+            // One side quit the session - take both players back to pairing.
+            if (data == MSG_QUIT) {
+                Toast.makeText(this, getString(R.string.opponent_quit_session), Toast.LENGTH_LONG).show()
+                returnToMultiplayer()
                 return@post
             }
             // Authoritative full-board states are the primary online transport.
@@ -643,6 +698,8 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         // High score only when the human beats the AI offline.
         if (mode == MODE_AI && winner == GameDefs.BLACK) {
             promptHighScoreSave(message)
+        } else if (mode == MODE_ONLINE) {
+            showOnlineGameEndDialog(message)
         } else {
             showGameEndDialog(message, null)
         }
@@ -698,6 +755,203 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             .setNegativeButton(getString(R.string.back_to_menu)) { _, _ -> finish() }
         if (note != null) b.setMessage(note)
         b.show()
+    }
+
+    // ------------------------------------------------------------------
+    // Online end-of-session: rematch / chat / quit
+    // ------------------------------------------------------------------
+
+    private var lastEndTitle = ""
+
+    /** End-of-match options for online games: Rematch, Chat, Quit session. */
+    private fun showOnlineGameEndDialog(message: String) {
+        if (mode != MODE_ONLINE) {
+            showGameEndDialog(message, null)
+            return
+        }
+        dismissChat()
+        lastEndTitle = message
+        val b = AlertDialog.Builder(this)
+            .setTitle(message)
+            .setCancelable(false)
+            .setPositiveButton(getString(R.string.rematch)) { _, _ -> requestRematch() }
+            .setNeutralButton(getString(R.string.chat)) { _, _ -> openChat() }
+            .setNegativeButton(getString(R.string.quit_session)) { _, _ -> quitSession() }
+        endDialog = b.show()
+        if (peerRematchRequested) {
+            endDialog?.setMessage(getString(R.string.opponent_wants_rematch))
+        }
+    }
+
+    /** Local user tapped Rematch (either on the end dialog or in chat). */
+    private fun requestRematch() {
+        if (mode != MODE_ONLINE) return
+        rematchRequested = true
+        P2PManager.sendMove(MSG_REMATCH)
+        if (peerRematchRequested) {
+            startRematch()
+        } else {
+            toast(getString(R.string.rematch_waiting))
+            endDialog?.findViewById<TextView>(android.R.id.title)
+                ?.text = getString(R.string.rematch_waiting)
+        }
+    }
+
+    /** The peer asked for a rematch. Start one straight away if we also asked. */
+    private fun handleRematchRequested() {
+        if (!gameOver) return
+        peerRematchRequested = true
+        if (rematchRequested) {
+            startRematch()
+            return
+        }
+        toast(getString(R.string.opponent_wants_rematch))
+        endDialog?.setMessage(getString(R.string.opponent_wants_rematch))
+        if (chatDialog?.isShowing == true) {
+            chatLog.add(getString(R.string.opponent_wants_rematch))
+            chatLog.add(getString(R.string.chat_tap_rematch))
+            renderChat()
+        }
+    }
+
+    /** Both players confirmed a rematch - roll the board back and start over. */
+    private fun startRematch() {
+        rematchRequested = false
+        peerRematchRequested = false
+        chatLog.clear()
+        dismissEndDialog()
+        dismissChat()
+        resetGame()
+        toast(getString(R.string.rematch_started))
+    }
+
+    /** Quit the online session and return both players to the pairing screen. */
+    private fun quitSession() {
+        if (mode != MODE_ONLINE) return
+        P2PManager.sendMove(MSG_QUIT)
+        returnToMultiplayer()
+    }
+
+    private fun returnToMultiplayer() {
+        rematchRequested = false
+        peerRematchRequested = false
+        dismissEndDialog()
+        dismissChat()
+        sessionReturnToMultiplayer = true
+        // Give the QUIT message a moment to flush before tearing down the peer.
+        uiHandler.postDelayed({
+            if (isDestroyed || isFinishing) return@postDelayed
+            finish()
+        }, 350)
+    }
+
+    // ----- Chat -----
+
+    private fun openChat() {
+        if (mode != MODE_ONLINE) return
+        dismissEndDialog()
+
+        val density = resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+
+        val logTv = TextView(this).apply {
+            textSize = 14f
+            setTextColor(0xFFD6D6D6.toInt())
+            setLineSpacing(0f, 1.1f)
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+        }
+        chatLogView = logTv
+
+        val scroll = ScrollView(this)
+        scroll.addView(logTv,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
+        val input = EditText(this).apply {
+            hint = getString(R.string.chat_hint)
+            maxLines = 2
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+        }
+
+        val btnSend = Button(this).apply { text = getString(R.string.chat_send) }
+        val btnRematch = Button(this).apply { text = getString(R.string.rematch) }
+
+        val buttons = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(btnSend,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(btnRematch,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        }
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(scroll,
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(170)))
+            addView(input,
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+            addView(buttons,
+                LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+
+        btnSend.setOnClickListener {
+            val text = input.text?.toString() ?: return@setOnClickListener
+            if (text.isNotBlank()) {
+                sendChatMessage(text)
+                input.setText("")
+            }
+        }
+        btnRematch.setOnClickListener { requestRematch() }
+
+        chatDialog = AlertDialog.Builder(this)
+            .setTitle(getString(R.string.chat))
+            .setView(root)
+            .setCancelable(false)
+            .setNegativeButton(getString(R.string.back_to_end)) { _, _ ->
+                dismissChat()
+                showOnlineGameEndDialog(lastEndTitle)
+            }
+            .create().also { it.show() }
+
+        renderChat()
+    }
+
+    private fun sendChatMessage(text: String) {
+        val t = text.trim()
+        if (t.isEmpty()) return
+        chatLog.add("You: $t")
+        P2PManager.sendMove("$MSG_CHAT|$t")
+        renderChat()
+    }
+
+    private fun handleChatReceived(text: String) {
+        chatLog.add("Opponent: $text")
+        if (chatDialog?.isShowing == true) {
+            renderChat()
+        } else {
+            toast("Message from opponent: $text")
+        }
+    }
+
+    private fun renderChat() {
+        val v = chatLogView ?: return
+        v.text = chatLog.joinToString("\n")
+        v.post { (v.parent as? ScrollView)?.fullScroll(ScrollView.FOCUS_DOWN) }
+    }
+
+    private fun dismissChat() {
+        chatDialog?.dismiss()
+        chatDialog = null
+        chatLogView = null
+    }
+
+    private fun dismissEndDialog() {
+        endDialog?.dismiss()
+        endDialog = null
+    }
+
+    private fun toast(text: String) {
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show()
     }
 
     private fun elapsedSeconds(): Int {

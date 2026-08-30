@@ -2,12 +2,64 @@ Checkers
 
 Android game called Checkers
 
-
-
 Project Location /home/jay/Documents/Scripts/AI/openclaw/Android-Apps/Checkers/
 
+#Free #Mobile #Android  #Full #Single & #MultPlayer #Checkers #Game https://github.com/jnetai-clawbot/Checkers/releases
 
 
+v1.3.0 changes (release as Checkers.apk, same keystore, installs over v1.2.2):
+1. Player moves are instant — your move and your online opponent's moves land on
+   the board immediately. Only the AI delays its reply (then glides its piece
+   slowly so you can see what changed).
+2. Settings → "AI reply delay" (new): Instant (0s), 1s, 2s or 3s (default 2s)
+   "thinking" time before the AI moves.
+3. Online match end: Rematch (both tap → new game instantly), Chat (send
+   messages, with a Rematch button inside the chat) and Quit session (both
+   players return to the Multiplayer screen to host / join / Quick Match again).
+
+
+v1.2.2 released as Checkers.apk (same keystore, installs over v1.2.1).
+Ready to test. Release: https://github.com/jnetai-clawbot/Checkers/releases (also at apk/Checkers.apk / android/apk/Checkers.apk).
+What changed:
+1. Default piece colours are now RED and BLUE — no more hard-to-see dark/black pieces on dark squares. Player 1 (first to move / host) = red, Player 2 = blue.
+2. Settings → Colours (new):
+- Player 1 piece colour
+- Player 2 piece colour (kept different from Player 1 automatically, so the two sides never mix up)
+- Dark square colour — defaults to the original brown; you can also pick Dark Grey, Red, Blue, Green, Orange, Purple or Cyan. The light squares stay exactly as they are now.
+3. Every piece has a light halo rim, so pieces stay clearly visible on any square colour you choose — no clashing/hidden pieces. Red pieces on a red board still pop.
+4. Board-tight labels updated from "Black / White" to Player 1 / Player 2 (status line, win message, time-up and captured counts) so they match your chosen colours. Applies to all modes: vs AI, 2-player, and online (host/join/QR/Quick Match) — both players use the same board colours.
+Colours persist across app restarts, and the build passed compile + all 35 unit tests before release.
+
+
+
+All fixed and v1.2.1 released as Checkers.apk — same keystore, so it installs straight over v1.2.0.
+Ready to test. Release: https://github.com/jnetai-clawbot/Checkers/releases (APK also at apk/Checkers.apk and android/apk/Checkers.apk).
+What was wrong and the fix:
+1. Root cause — the old online transport relayed a single validated move and onMovePlayed re-broadcast every incoming move back to the sender (echo). Any rejected/echoed/re-ordered message left one side's engine a move behind, so the opponent's pieces stopped appearing on that player's board.
+2. Fix — online moves are now sent as a full authoritative board-STATE snapshot (STATE|rules|moveCount|turn|…|board|lastMove). The challenger overwrites its engine from each state, so the two boards can never diverge — both players always see both their own and the opponent's pieces, in every multiplayer mode/connection method (host, join, code, QR, Quick Match).
+3. Received moves are no longer echoed, and inbound states are de-duplicated by the monotonically increasing moveCount.
+4. The challenger now adopts the host's rule preset automatically, so even two devices with different settings play on an identical board (same size/layout).
+5. The host pushes an initial state at match start and after New Game, aligning both boards from move one.
+Verified: added OnlineSyncTest (4 JVM tests) proving two peer engines stay perfectly synchronised across hundreds of moves — including when one peer starts on a different rule preset — plus the existing 31 engine tests still pass, and Kotlin compiles clean.
+
+
+v1.2.0 released as Checkers.apk (same keystore, installs straight over v1.1.0).
+Ready to test — the v1.2.0 build finished and published:
+- Release: https://github.com/jnetai-clawbot/Checkers/releases
+- APK also copied to apk/Checkers.apk and android/apk/Checkers.apk.
+What changed:
+1. Share button — renamed to just "Share" and sits in line with Show QR / Copy code.
+2. E-NET-002 fix — online MP no longer dials raw private IPs; it now uses WebRTC (PeerJS in a hidden WebView) over public Google STUN + openrelay TURN, so opponents connect over the internet through NAT. Host/Join/QR/share-code all work over the internet.
+3. AI realism — the AI "thinks" 1.6–3s, then glides its piece smoothly (~650ms/hop) to the destination with a last-move highlight, so you can't miss the move.
+4. Quick Match — new button that first looks for an existing host (lobby slot), auto-hosts a room if none found, and loops until a player is found. Random pairs are auto-assigned HOST/CLIENT for black/white.
+Verified: engine unit tests pass, Kotlin compiles, and the bridge logic (host/join handshake, move relay, resign, random pairing incl. 3-player) passed an 11-case simulation harness.
+
+
+Checkers v1.0.0 is complete — built and signed on GitHub Actions (never locally), release published, APK in apk/ and android/apk/.
+Release (latest, no direct download): https://github.com/jnetai-clawbot/Checkers/releases
+Includes: vs AI (Easy/Medium/Hard, offline), 2 Player same-device (offline), Online P2P via share code/QR, UK/Europe (default), US and International rule presets, per-player timer, High Score board in the main menu, About section (Made by jnetai.com, version = tag, check-for-update with release-page fallback, Share App), persistent error-logging with error codes everywhere, dark theme.
+Future updates: git tag vX.Y.Z && git push origin master --tags in /home/jay/Documents/Scripts/AI/openclaw/Android-Apps/Checkers (same keystore, updates install without uninstall). changes.txt updated; keystore password saved in the password vault.
+▣  Build · DeepSeek V4 Flash
 
 
 

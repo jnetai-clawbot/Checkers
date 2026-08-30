@@ -107,9 +107,22 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
 
     override fun onResume() {
         super.onResume()
-        // The game was finished; this pairing screen has served its purpose.
+        // The game that was started has now ended.
         if (startedGame) {
-            finish()
+            if (GameActivity.consumeSessionReturnToMultiplayer()) {
+                // "Quit session" was chosen: come back to the pairing screen
+                // so the player can host / join / Quick Match again.
+                startedGame = false
+                tvShareCode.text = "—"
+                tvShareCode.visibility = TextView.VISIBLE
+                hideQr()
+                btnQuickMatch.text = getString(R.string.online_quick_match)
+                setStatus(getString(R.string.online_multiplayer), false)
+            } else {
+                // The game was finished normally - this pairing screen has
+                // served its purpose and the user is heading back to the menu.
+                finish()
+            }
         }
     }
 

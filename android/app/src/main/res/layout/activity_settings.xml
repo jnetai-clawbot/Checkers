@@ -68,6 +68,27 @@
             android:layout_marginTop="20dp"
             android:background="@color/divider" />
 
+        <!-- AI reply delay -->
+        <TextView
+            style="@style/SubtitleTextStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/settings_ai_delay" />
+
+        <Spinner
+            android:id="@+id/spinnerAiDelay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:spinnerMode="dropdown" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="20dp"
+            android:background="@color/divider" />
+
         <!-- Game Rules -->
         <TextView
             style="@style/SubtitleTextStyle"

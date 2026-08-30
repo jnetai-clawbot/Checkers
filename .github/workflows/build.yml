@@ -41,7 +41,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew testDebugUnitTest assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
         run: |
@@ -76,6 +76,18 @@ jobs:
             - High Score board - fewest moves & fastest time ranks highest
             - Dark professional theme, works on Samsung S8+ and Pixel 6+
             - Made by jnetai.com
+
+            ### v1.3.0 - Instant human moves, AI reply delay + rematch & chat
+            - Your own moves are now applied instantly; only the AI delays its
+              reply (then glides its piece slowly) so you can see what changed
+            - New Settings → "AI reply delay": Instant (0s), 1, 2 or 3 seconds
+              of "thinking" time before the AI moves (2 seconds by default)
+            - At the end of an online match you can now:
+              - Rematch - if both players tap Rematch a new game starts instantly
+              - Chat - swap messages with your opponent, with a Rematch button
+                built right into the chat
+              - Quit session - either player can leave; both return to the
+                Multiplayer screen to host / join / Quick Match again
 
             ### v1.2.2 - Board & piece colours
             - Default piece colours are now RED (Player 1) and BLUE (Player 2)

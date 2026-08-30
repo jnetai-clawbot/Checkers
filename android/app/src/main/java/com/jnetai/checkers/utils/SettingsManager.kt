@@ -16,6 +16,7 @@ class SettingsManager private constructor(context: Context) {
 
     object Keys {
         const val AI_DIFFICULTY = "ai_difficulty"
+        const val AI_THINK_SECONDS = "ai_think_seconds"
         const val RULE_PRESET = "rule_preset"
         const val TIMER_MINUTES = "timer_minutes"
         const val SOUND_ENABLED = "sound_enabled"
@@ -39,6 +40,13 @@ class SettingsManager private constructor(context: Context) {
             AiDifficulty.EASY
         }
     }
+
+    // ----- AI reply delay (seconds before the AI "moves"; 0 = instant) -----
+    fun setAiThinkSeconds(seconds: Int) {
+        prefs.edit().putInt(Keys.AI_THINK_SECONDS, seconds.coerceIn(0, 3)).apply()
+    }
+
+    fun getAiThinkSeconds(): Int = prefs.getInt(Keys.AI_THINK_SECONDS, 2)
 
     // ----- Rules preset -----
     fun setRulePreset(preset: RulePreset) {

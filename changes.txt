@@ -1,5 +1,45 @@
 # Checkers — Changes
 
+## v1.3.0 (2026-08-30)
+
+Instant human moves, a user-configurable AI reply delay, and a proper
+end-of-match flow for online games (Rematch / Chat / Quit session).
+
+### What changed
+- **Player moves are now instant** — your own move (and every move your online
+  opponent makes) lands on the board the moment it is made. The only artificial
+  pause in the whole game is the AI's reply wait.
+- **Settings → "AI reply delay"** (new): choose how long the AI "thinks" before
+  it moves — **Instant (0s), 1s, 2s or 3s** (2s by default). After the chosen
+  delay the AI still glides its piece slowly across the board so you can always
+  see what changed. Instant = the AI replies immediately with no glide.
+- **Online match end dialog** now offers three choices to both players:
+  - **Rematch** — if both players tap Rematch a brand-new game starts instantly
+    (no trip back to the menu). Each side is told when the opponent wants one.
+  - **Chat** — swap messages with your opponent, with a **Rematch** button built
+    right into the chat so you can agree to play again while chatting. Incoming
+    messages appear as toasts when the chat window is closed.
+  - **Quit session** — either player can leave; both players are returned to the
+    Multiplayer screen where they can host / join / Quick Match again.
+- `build.yml` now runs the JVM unit tests (`testDebugUnitTest`) before building
+  the signed release APK.
+
+### Files
+- `GameActivity.kt`: instant human moves; AI delay reads the new setting
+  (`applyAiMove` extracted); end-of-session rematch/chat/quit + P2P message
+  handling (`REMATCH`, `CHAT|`, `QUIT_SESSION`); `sessionReturnToMultiplayer`
+  flag so quitting can return to the pairing screen.
+- `OnlineActivity.kt`: stays on the pairing screen after a "Quit session"
+  instead of auto-finishing.
+- `utils/SettingsManager.kt`: persistent `ai_think_seconds` (0-3, default 2).
+- `settings/SettingsActivity.kt` + `activity_settings.xml` + `arrays.xml` +
+  `strings.xml`: "AI reply delay" drop-down with Instant / 1 / 2 / 3 seconds.
+- `strings.xml`: rematch / chat / quit-session copy.
+- `net/PeerTransport.kt`: user agent bumped to `CheckersApp/1.3`.
+- `app/build.gradle`: `versionCode 6`, `versionName 1.3.0`.
+
+# Checkers — Changes
+
 ## v1.2.2 (2026-08-30)
 
 Configurable board & piece colours so every piece is always clearly visible.

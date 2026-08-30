@@ -17,6 +17,7 @@
     <string name="about">About</string>
 
     <string name="settings_ai_difficulty">AI Difficulty</string>
+    <string name="settings_ai_delay">AI reply delay</string>
     <string name="settings_rules">Game Rules</string>
     <string name="settings_timer">Timer</string>
     <string name="settings_colours">Colours</string>
@@ -50,6 +51,17 @@
     <string name="game_draw">Draw</string>
     <string name="game_time_up">Time up — %1$s</string>
     <string name="new_game">New Game</string>
+    <string name="rematch">Rematch</string>
+    <string name="chat">Chat</string>
+    <string name="quit_session">Quit session</string>
+    <string name="rematch_waiting">Rematch requested — waiting for the opponent to accept…</string>
+    <string name="opponent_wants_rematch">Opponent wants a rematch. Tap Rematch to play again.</string>
+    <string name="rematch_started">New game!</string>
+    <string name="opponent_quit_session">Your opponent left the session.</string>
+    <string name="back_to_end">Back</string>
+    <string name="chat_tap_rematch">Tap Rematch to play again.</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_hint">Type a message…</string>
     <string name="undo">Undo</string>
     <string name="hint">Hint</string>
     <string name="resign">Resign</string>

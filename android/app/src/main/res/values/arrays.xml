@@ -7,6 +7,13 @@
         <item>10 min per player</item>
     </string-array>
 
+    <string-array name="ai_delay_options">
+        <item>Instant (no delay)</item>
+        <item>1 second</item>
+        <item>2 seconds</item>
+        <item>3 seconds</item>
+    </string-array>
+
     <string-array name="piece_colour_options">
         <item>Red</item>
         <item>Blue</item>

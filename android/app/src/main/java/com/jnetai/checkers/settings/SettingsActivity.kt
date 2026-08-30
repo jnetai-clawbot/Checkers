@@ -25,6 +25,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var rgDifficulty: RadioGroup
     private lateinit var rgRules: RadioGroup
     private lateinit var spinnerTimer: Spinner
+    private lateinit var spinnerAiDelay: Spinner
     private lateinit var spinnerP1Colour: Spinner
     private lateinit var spinnerP2Colour: Spinner
     private lateinit var spinnerSquareColour: Spinner
@@ -40,6 +41,7 @@ class SettingsActivity : AppCompatActivity() {
             rgDifficulty = findViewById(R.id.rgDifficulty)
             rgRules = findViewById(R.id.rgRules)
             spinnerTimer = findViewById(R.id.spinnerTimer)
+            spinnerAiDelay = findViewById(R.id.spinnerAiDelay)
             spinnerP1Colour = findViewById(R.id.spinnerP1Colour)
             spinnerP2Colour = findViewById(R.id.spinnerP2Colour)
             spinnerSquareColour = findViewById(R.id.spinnerSquareColour)
@@ -83,6 +85,14 @@ class SettingsActivity : AppCompatActivity() {
                     else -> 10
                 }
                 settingsManager.setTimerMinutes(minutes)
+            }
+
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>) { }
+        }
+
+        spinnerAiDelay.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: android.view.View?, pos: Int, id: Long) {
+                settingsManager.setAiThinkSeconds(pos)
             }
 
             override fun onNothingSelected(parent: android.widget.AdapterView<*>) { }
@@ -196,6 +206,12 @@ class SettingsActivity : AppCompatActivity() {
                 else -> 3
             }
         )
+
+        // AI reply delay dropdown
+        val aiDelayTitles = resources.getStringArray(R.array.ai_delay_options)
+        val aiDelayAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, aiDelayTitles)
+        spinnerAiDelay.adapter = aiDelayAdapter
+        spinnerAiDelay.setSelection(settingsManager.getAiThinkSeconds())
 
         // Sound
         swSound.isChecked = settingsManager.isSoundEnabled()
