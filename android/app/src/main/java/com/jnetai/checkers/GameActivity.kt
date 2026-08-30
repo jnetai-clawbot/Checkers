@@ -24,6 +24,7 @@ import com.jnetai.checkers.utils.ErrorLogger
 import com.jnetai.checkers.utils.HighScoreStore
 import com.jnetai.checkers.utils.SettingsManager
 import com.jnetai.checkers.utils.SoundEffects
+import java.util.Random
 import java.util.concurrent.Executors
 
 /**
@@ -42,6 +43,12 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         const val ROLE_CLIENT = "CLIENT"
 
         const val MSG_NEWGAME = "NEWGAME"
+
+        // AI realism: minimum "thinking" time before the AI replies and the
+        // time it takes the animated piece to glide across the board.
+        private const val AI_MIN_THINK_MS = 1600L
+        private const val AI_THINK_JITTER_MS = 1400L
+        private const val AI_MOVE_ANIM_MS_PER_HOP = 650L
 
         private var highScorePlayerName = ""
     }
@@ -69,6 +76,8 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
     private val aiExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "checkers-ai").apply { priority = Thread.NORM_PRIORITY }
     }
+
+    private var aiThinkStart = 0L
 
     // Chess clock state (ms). 0 = disabled.
     private var timerMinutes = 0
@@ -132,6 +141,10 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         super.onDestroy()
         uiHandler.removeCallbacks(clockTicker)
         try { aiExecutor.shutdownNow() } catch (_: Exception) { }
+        // Tear down the PeerJS transport so a stale session can't linger.
+        if (mode == MODE_ONLINE) {
+            P2PManager.stop()
+        }
     }
 
     // ------------------------------------------------------------------
@@ -253,26 +266,43 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         if (mode != MODE_AI || engine.currentPlayer != GameDefs.WHITE) return
 
         boardView.setLocked(true)
+        aiThinkStart = System.currentTimeMillis()
         tvStatus.text = getString(R.string.game_status_ai_turn)
 
         val diff: AiDifficulty = settingsManager.getAiDifficulty()
         aiExecutor.execute {
             val chosen: Move? = AiEngine.chooseMove(engine, GameDefs.WHITE, diff)
-            uiHandler.post {
-                if (isDestroyed || isFinishing) return@post
-                boardView.setLocked(false)
+            // Make the AI "think" for a short, human-feeling while so the move
+            // isn't instant and the player notices what happened.
+            val elapsed = System.currentTimeMillis() - aiThinkStart
+            val desiredThink = AI_MIN_THINK_MS + Random().nextInt(AI_THINK_JITTER_MS.toInt() + 1)
+            val wait = maxOf(0L, desiredThink - elapsed)
+
+            uiHandler.postDelayed({
+                if (isDestroyed || isFinishing) return@postDelayed
                 if (chosen == null) {
+                    boardView.setLocked(false)
                     val r = engine.getResult()
                     if (r != GameDefs.EMPTY) handleGameOver(r)
-                    return@post
+                    return@postDelayed
                 }
                 val state = engine.saveState()
                 val captured = engine.applyMove(chosen)
-                if (captured == null) return@post
+                if (captured == null) {
+                    boardView.setLocked(false)
+                    return@postDelayed
+                }
                 history.addLast(state)
                 if (history.size > 400) history.removeFirst()
-                onMovePlayed(chosen, chosen.isJump)
-            }
+
+                // Glide the piece smoothly to its destination, then finalise.
+                boardView.highlightedSquares = listOf(chosen.from, chosen.to)
+                boardView.animateAiMove(chosen, AI_MOVE_ANIM_MS_PER_HOP) {
+                    if (isDestroyed || isFinishing) return@animateAiMove
+                    boardView.setLocked(false)
+                    onMovePlayed(chosen, chosen.isJump)
+                }
+            }, wait)
         }
     }
 

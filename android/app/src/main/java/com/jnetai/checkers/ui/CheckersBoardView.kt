@@ -1,5 +1,8 @@
 package com.jnetai.checkers.ui
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -8,10 +11,12 @@ import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.view.animation.LinearInterpolator
 import com.jnetai.checkers.game.GameDefs
 import com.jnetai.checkers.game.GameEngine
 import com.jnetai.checkers.game.Move
 import com.jnetai.checkers.utils.ErrorLogger
+import kotlin.math.min
 
 /**
  * CheckersBoardView - draws the board and pieces and handles touch input.
@@ -38,6 +43,19 @@ class CheckersBoardView @JvmOverloads constructor(
     private var selectedSquare: Int? = null
     private var selectableSquares: MutableSet<Int> = mutableSetOf()
     private val moveByTarget: MutableMap<Int, Move> = mutableMapOf()
+
+    /** In-flight smooth glide used when the AI moves a piece. */
+    private data class AnimState(
+        val from: Int,
+        val path: List<Int>,
+        val piece: Int,
+        val startTime: Long,
+        val durationMsPerHop: Long
+    )
+
+    private var animState: AnimState? = null
+    private var animator: ValueAnimator? = null
+    private var onAnimComplete: (() -> Unit)? = null
 
     /** Pieces of the interactive side that have at least one legal move right now. */
     private var selectablePieces: MutableSet<Int> = mutableSetOf()
@@ -112,6 +130,7 @@ class CheckersBoardView @JvmOverloads constructor(
     fun attachEngine(g: GameEngine, interactive: Int?) {
         engine = g
         interactivePlayer = interactive
+        cancelAnim()
         clearSelection()
         invalidate()
     }
@@ -133,6 +152,57 @@ class CheckersBoardView @JvmOverloads constructor(
     fun refresh() {
         rebuildSelectables()
         invalidate()
+    }
+
+    /**
+     * Smoothly glide a committed move from [move.from] through [move.path] to
+     * its destination over ~[msPerHop] per hop, then invoke [onDone]. The
+     * engine board must already contain the applied move.
+     */
+    fun animateAiMove(move: Move, msPerHop: Long, onDone: () -> Unit) {
+        val g = engine ?: run { onDone(); return }
+        cancelAnim()
+        val piece = g.pieceAt(move.to)
+        if (piece == GameDefs.EMPTY) {
+            onDone()
+            return
+        }
+        val hops = if (move.path.isNotEmpty()) move.path.size else 1
+        val anim = AnimState(
+            from = move.from,
+            path = move.path,
+            piece = piece,
+            startTime = System.currentTimeMillis(),
+            durationMsPerHop = msPerHop.coerceAtLeast(120L)
+        )
+        animState = anim
+        onAnimComplete = onDone
+
+        val a = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = (anim.durationMsPerHop * hops).coerceAtLeast(250L)
+            interpolator = LinearInterpolator()
+            addUpdateListener { invalidate() }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    val cb = onAnimComplete
+                    animator = null
+                    animState = null
+                    onAnimComplete = null
+                    invalidate()
+                    cb?.invoke()
+                }
+            })
+        }
+        animator = a
+        a.start()
+    }
+
+    /** Halt any in-flight AI move animation without firing its completion. */
+    fun cancelAnim() {
+        onAnimComplete = null
+        animState = null
+        animator?.cancel()
+        animator = null
     }
 
     private fun rebuildSelectables() {
@@ -218,10 +288,64 @@ class CheckersBoardView @JvmOverloads constructor(
         }
 
         // Pieces.
+        val anim = animState
         for (sq in 0 until n * n) {
             val piece = g.pieceAt(sq)
             if (piece == GameDefs.EMPTY) continue
+            // The gliding piece is drawn separately below, so skip its landing
+            // square while the keyframe is active. Captures have already been
+            // removed by the engine, so the board is otherwise final.
+            if (anim != null && sq == anim.path.last()) continue
             drawPiece(canvas, g, sq, piece)
+        }
+
+        // In-flight glide of the just-committed move.
+        if (anim != null) {
+            drawAnimatedPiece(canvas, g, anim)
+        }
+    }
+
+    private fun drawAnimatedPiece(canvas: Canvas, g: GameEngine, anim: AnimState) {
+        val hops = if (anim.path.isNotEmpty()) anim.path.size else 1
+        val durationMs = (anim.durationMsPerHop * hops).coerceAtLeast(250L)
+        val elapsed = (System.currentTimeMillis() - anim.startTime).coerceAtLeast(0L)
+        val t = (elapsed.toFloat() / durationMs).coerceIn(0f, 1f)
+
+        val pos = hops * t
+        val idx = min(pos.toInt(), hops - 1)
+        val seg = (pos - idx).coerceIn(0f, 1f)
+
+        val fromSq = if (idx == 0) anim.from else anim.path[idx - 1]
+        val toSq = anim.path[idx]
+
+        val fromR = scrRow(g, rowOfSquare(g, fromSq))
+        val toR = scrRow(g, rowOfSquare(g, toSq))
+        val fromC = colOfSquare(g, fromSq)
+        val toC = colOfSquare(g, toSq)
+
+        val r = fromR + (toR - fromR) * seg
+        val c = fromC + (toC - fromC) * seg
+        val cx = boardLeft + c * squareSize + squareSize / 2
+        val cy = boardTop + r * squareSize + squareSize / 2
+        val radius = squareSize * 0.38f
+
+        val fill: Paint
+        val edge: Paint
+        if (GameDefs.owner(anim.piece) == GameDefs.BLACK) {
+            fill = blackFillPaint
+            edge = blackEdgePaint
+        } else {
+            fill = whiteFillPaint
+            edge = whiteEdgePaint
+        }
+
+        canvas.drawCircle(cx, cy, radius, fill)
+        canvas.drawCircle(cx, cy, radius, edge)
+
+        if (GameDefs.isKing(anim.piece)) {
+            canvas.drawCircle(cx, cy, radius * 0.55f, kingMarkPaint)
+            canvas.drawLine(cx, cy - radius * 0.4f, cx, cy + radius * 0.4f, kingMarkPaint)
+            canvas.drawLine(cx - radius * 0.4f, cy, cx + radius * 0.4f, cy, kingMarkPaint)
         }
     }
 
@@ -288,7 +412,10 @@ class CheckersBoardView @JvmOverloads constructor(
     /** Lock input (e.g. while the AI is moving). */
     fun setLocked(locked: Boolean) {
         gameLocked.set(locked)
-        if (locked) clearSelection()
+        if (locked) {
+            clearSelection()
+            cancelAnim()
+        }
     }
 
     private fun handleTap(sq: Int) {

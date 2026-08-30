@@ -1,5 +1,44 @@
 # Checkers — Changes
 
+## v1.2.0 (2026-08-30)
+
+Online multiplayer reworked so players can actually connect over the internet,
+plus a more realistic AI opponent.
+
+### Online multiplayer (P2P over the internet)
+- **Root cause of E-NET-002-CONNECT fixed**: the old transport dialed the host's
+  private LAN IP directly over TCP, which fails across NAT. The game now uses
+  **WebRTC (PeerJS)** in a hidden WebView with public **Google STUN** servers and
+  the **openrelay.metered.ca TURN** relay, so opponents connect through NATs over
+  the public internet.
+- Handshake / moves / resign / ping now flow over the WebRTC data channel
+  (`HELLO` / `ROOM_OK` / `MOV` / `RESIGN` / `PING`), validated by the same engine.
+- **Quick Match (random)** button added: first looks for an existing host (a
+  rolling "lobby slot" PeerJS id), connects to it; if no host is found it
+  auto-hosts a room and waits, **looping until a player is available**. Existing
+  host-by-code / join-by-code / QR / share methods still work (and now work over
+  the internet).
+- Hosting and joining over internet; share code is now a short WebRTC id token
+  (`CKRS:<id>`) still shown / copied / shared / QR-scanned.
+- Share button shortened to **"Share"** and kept in line with the other pairing
+  buttons.
+
+### Realistic AI
+- The AI now "thinks" for a couple of seconds (1.6–3s, randomised) before replying
+  instead of moving instantly.
+- The chosen piece glides **smoothly and slowly** to its destination (approx 650ms
+  per hop) so you never miss what move was made; last-move highlight shows after.
+
+### Files
+- Added `net/PeerTransport.kt` (WebView + JS bridge), `Net/P2PManager.kt` rewritten
+  as a facade over the bridge.
+- Added `assets/web/bridge.html`, `assets/web/js/bridge.js`, `assets/web/js/peerjs.min.js`.
+- `ui/CheckersBoardView.kt`: AI move glide animation.
+- `GameActivity.kt`: thinking delay + animated AI move + transport lifecycle.
+- `OnlineActivity.kt`: Quick Match / random cancel, transport init, status text.
+- `activity_online.xml` / `strings.xml`: Quick Match button, "Share" label.
+- `app/build.gradle`: version 1.2.0 (code 3), `androidx.webkit` dependency.
+
 ## v1.1.0 (2026-08-28)
 
 Rules audit: the default **UK / Europe** preset now plays accurate **UK English

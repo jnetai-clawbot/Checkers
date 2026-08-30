@@ -21,7 +21,11 @@ import com.jnetai.checkers.utils.ErrorLogger
 import com.jnetai.checkers.utils.QRCodeUtils
 
 /**
- * Host or join an online P2P checkers match using a share code / QR code.
+ * Host, join or Quick Match an online P2P checkers match.
+ *
+ * The transport is WebRTC (PeerJS in a hidden WebView with public Google STUN
+ * and openrelay TURN servers), so opponents connect over the internet even
+ * behind NAT. Pairing uses a short share code / QR code.
  */
 class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
 
@@ -43,6 +47,7 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
     private lateinit var tvStatus: TextView
     private lateinit var btnHost: Button
     private lateinit var btnJoin: Button
+    private lateinit var btnQuickMatch: Button
     private lateinit var btnShowQr: Button
     private lateinit var btnCopyCode: Button
     private lateinit var btnShare: Button
@@ -56,24 +61,34 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
         setContentView(R.layout.activity_online)
 
         try {
+            P2PManager.initialize(this)
+        } catch (e: Exception) {
+            ErrorLogger.logf(ErrorLogger.Codes.NET_HOST_FAILED,
+                "Failed to initialise the P2P transport", e)
+            setStatus("Network bridge failed to load", true)
+        }
+
+        try {
             tvShareCode = findViewById(R.id.tvShareCode)
             imgQr = findViewById(R.id.imgQr)
             etShareCode = findViewById(R.id.etShareCode)
             tvStatus = findViewById(R.id.tvOnlineStatus)
             btnHost = findViewById(R.id.btnHost)
             btnJoin = findViewById(R.id.btnJoin)
+            btnQuickMatch = findViewById(R.id.btnQuickMatch)
             btnShowQr = findViewById(R.id.btnShowQr)
             btnCopyCode = findViewById(R.id.btnCopyCode)
             btnShare = findViewById(R.id.btnShare)
             btnScanQr = findViewById(R.id.btnScanQr)
         } catch (e: Exception) {
-            ErrorLogger.log(ErrorLogger.Codes.UI_VIEW_BINDING, "Failed to bind online views", e)
+            ErrorLogger.logf(ErrorLogger.Codes.UI_VIEW_BINDING, "Failed to bind online views", e)
             finish()
             return
         }
 
         btnHost.setOnClickListener { onHostClick() }
         btnJoin.setOnClickListener { onJoinClick() }
+        btnQuickMatch.setOnClickListener { onQuickMatchClick() }
         btnShowQr.setOnClickListener { toggleQr() }
         btnCopyCode.setOnClickListener { copyCode() }
         btnShare.setOnClickListener { shareCode() }
@@ -90,12 +105,18 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
         P2PManager.removeListener(this)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // The game was finished; this pairing screen has served its purpose.
+        if (startedGame) {
+            finish()
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        // Only stop the transport if we didn't hand off to the game.
-        if (!startedGame) {
-            P2PManager.stop()
-        }
+        P2PManager.stop()
+        P2PManager.removeListener(this)
     }
 
     // ------------------------------------------------------------------
@@ -107,7 +128,7 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
             Toast.makeText(this, "A session is already active", Toast.LENGTH_SHORT).show()
             return
         }
-        val token = P2PManager.hostGame(P2PManager.DEFAULT_PORT)
+        val token = P2PManager.hostGame()
         if (token == null) {
             setStatus("Could not start hosting. Try again.", true)
             return
@@ -116,7 +137,7 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
         tvShareCode.text = token
         tvShareCode.visibility = TextView.VISIBLE
         hideQr()
-        setStatus(getString(R.string.online_waiting), false)
+        setStatus("Starting host…", false)
         Toast.makeText(this, "Share the code with your opponent", Toast.LENGTH_LONG).show()
     }
 
@@ -133,10 +154,40 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
         }
     }
 
+    private fun onQuickMatchClick() {
+        if (P2PManager.isConnected()) {
+            Toast.makeText(this, "Already connected to an opponent", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (P2PManager.isRunning()) {
+            if (P2PManager.isRandomMode()) {
+                // Already searching: stop and reset.
+                P2PManager.stopRandom()
+                tvShareCode.text = "—"
+                tvShareCode.visibility = TextView.VISIBLE
+                hideQr()
+                setStatus("Quick Match cancelled", false)
+                btnQuickMatch.text = getString(R.string.online_quick_match)
+                return
+            }
+            // Mid host/join wait: drop it and switch to a random search.
+            P2PManager.stop()
+        }
+        pendingRole = P2PManager.Role.HOST
+        if (!P2PManager.startRandom()) {
+            setStatus("Could not start Quick Match. Try again.", true)
+            return
+        }
+        tvShareCode.visibility = TextView.GONE
+        hideQr()
+        setStatus(getString(R.string.online_quick_match_searching), false)
+        btnQuickMatch.text = getString(R.string.online_quick_match_cancel)
+    }
+
     private fun toggleQr() {
         val token = tvShareCode.text.toString()
         if (!token.startsWith(P2PManager.PROTOCOL_PREFIX)) {
-            Toast.makeText(this, "Start hosting first", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Start hosting or Quick Match first", Toast.LENGTH_SHORT).show()
             return
         }
         if (imgQr.visibility == ImageView.VISIBLE) {
@@ -159,7 +210,7 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
     private fun copyCode() {
         val token = tvShareCode.text.toString()
         if (!token.startsWith(P2PManager.PROTOCOL_PREFIX)) {
-            Toast.makeText(this, "Start hosting first", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Start hosting or Quick Match first", Toast.LENGTH_SHORT).show()
             return
         }
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -170,13 +221,13 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
     private fun shareCode() {
         val token = tvShareCode.text.toString()
         if (!token.startsWith(P2PManager.PROTOCOL_PREFIX)) {
-            Toast.makeText(this, "Start hosting first", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Start hosting or Quick Match first", Toast.LENGTH_SHORT).show()
             return
         }
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT,
-                "Play Checkers with me!\nShare code: $token\nOpen the online mode and scan, or enter the code.")
+                "Play Checkers with me!\nShare code: $token\nOpen the online mode, or enter the code.")
         }
         startActivity(Intent.createChooser(send, "Share checkers code"))
     }
@@ -191,18 +242,30 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
             options.setBeepEnabled(true)
             qrScanLauncher.launch(options)
         } catch (e: Exception) {
-            ErrorLogger.log(ErrorLogger.Codes.QR_SCAN_FAILED, "Failed to start QR scanner", e)
+            ErrorLogger.logf(ErrorLogger.Codes.QR_SCAN_FAILED, "Failed to start QR scanner", e)
             Toast.makeText(this, "Could not open camera scanner", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
     }
 
     // ------------------------------------------------------------------
     // P2P listener
     // ------------------------------------------------------------------
+
+    override fun onLocalId(id: String) {
+        uiHandler.post {
+            if (startedGame) return@post
+            if (P2PManager.isRandomMode()) {
+                // The search loop re-publishes ids as rooms roll; keep the code
+                // hidden while looking for a random opponent.
+                btnQuickMatch.text = getString(R.string.online_quick_match_cancel)
+                return@post
+            }
+            val token = "${P2PManager.PROTOCOL_PREFIX}$id"
+            tvShareCode.text = token
+            tvShareCode.visibility = TextView.VISIBLE
+            btnQuickMatch.text = getString(R.string.online_quick_match)
+        }
+    }
 
     override fun onConnected(role: P2PManager.Role, remoteName: String) {
         uiHandler.post {
@@ -228,6 +291,8 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
     override fun onPeerDisconnected(reason: String) {
         uiHandler.post {
             if (!startedGame) {
+                pendingRole = P2PManager.Role.HOST
+                btnQuickMatch.text = getString(R.string.online_quick_match)
                 setStatus("Connection lost: $reason", true)
             }
         }
@@ -235,7 +300,14 @@ class OnlineActivity : AppCompatActivity(), P2PManager.Listener {
 
     override fun onError(errorCode: String, message: String) {
         uiHandler.post {
+            btnQuickMatch.text = getString(R.string.online_quick_match)
             setStatus("$errorCode — $message", true)
+        }
+    }
+
+    override fun onStatus(text: String, isError: Boolean) {
+        uiHandler.post {
+            setStatus(text, isError)
         }
     }
 

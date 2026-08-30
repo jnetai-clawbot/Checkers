@@ -59,7 +59,10 @@
     <string name="online_cancel">Cancel</string>
     <string name="online_enter_code_hint">Enter 6-character share code</string>
     <string name="online_copy_code">Copy code</string>
-    <string name="online_share">Share code with opponent</string>
+    <string name="online_share">Share</string>
+    <string name="online_quick_match">Quick Match</string>
+    <string name="online_quick_match_cancel">Stop search</string>
+    <string name="online_quick_match_searching">Searching for an opponent…</string>
 
     <string name="about_version">Version %1$s</string>
     <string name="about_developer">Made by jnetai.com</string>

@@ -5,7 +5,12 @@ An Android checkers game made by **jnetai.com**.
 ## Modes
 - **Play vs AI** — offline computer opponent (Easy / Medium / Hard)
 - **2 Player** — pass & play on one device, offline
-- **Online Multiplayer** — peer-to-peer: host a game and share the code or QR with an opponent
+- **Online Multiplayer** — peer-to-peer over the internet (WebRTC via public
+  Google STUN + openrelay TURN):
+  - **Host a game** — share the code or QR with an opponent
+  - **Join a game** — enter or scan the code
+  - **Quick Match** — random matchmaking: first looks for an existing host,
+    otherwise auto-hosts a room, looping until a player is found
 
 ## Settings
 - AI difficulty

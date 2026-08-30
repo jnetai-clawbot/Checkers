@@ -46,10 +46,11 @@ jobs:
       - name: Rename APK
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          cp android/app/build/outputs/apk/release/app-release.apk "Checkers-v${VERSION}.apk"
-          ls -lh Checkers-v${VERSION}.apk
-          echo "APK=Checkers-v${VERSION}.apk" >> $GITHUB_ENV
+          cp android/app/build/outputs/apk/release/app-release.apk "Checkers.apk"
+          ls -lh Checkers.apk
+          echo "APK=Checkers.apk" >> $GITHUB_ENV
           echo "TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          echo "VERSION=${VERSION}" >> $GITHUB_ENV
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -75,6 +76,17 @@ jobs:
             - High Score board - fewest moves & fastest time ranks highest
             - Dark professional theme, works on Samsung S8+ and Pixel 6+
             - Made by jnetai.com
+
+            ### v1.2.0 - Online mode over the internet + realistic AI
+            - Online multiplayer now uses WebRTC (PeerJS) over public Google
+              STUN + openrelay TURN servers, so opponents connect over the
+              internet even behind NAT (fixes the old E-NET-002 connect error)
+            - New Quick Match (random) mode - first looks for an existing host,
+              otherwise auto-hosts a room, looping until a player is found
+            - Share button shortened to "Share" and kept in line with the other
+              pairing buttons
+            - The AI now "thinks" for a couple of seconds and then glides its
+              piece smoothly and slowly across the board so you never miss the move
 
             ### v1.1.0 - Accurate UK English Draughts
             - Default UK / Europe preset now plays genuine English draughts
