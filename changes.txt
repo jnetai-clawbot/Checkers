@@ -1,5 +1,39 @@
 # Checkers — Changes
 
+## v1.2.1 (2026-08-30)
+
+Online multiplayer board-sync fix: both players must always see both their own
+**and** the opponent's pieces, in every multiplayer mode / connection method.
+
+### What was wrong
+- In some live online matches only one player's board stayed correct; the other
+  player saw only their own pieces. The old transport relayed a validated move
+  (from/path/captured), and `onMovePlayed` re-broadcast inbound moves back to the
+  sender; any rejected / echoed / re-ordered message left one side's engine one
+  or more moves behind, so the opponent's pieces never moved on their screen.
+
+### The fix (authoritative board-state sync)
+- Online moves are now sent as a full, authoritative engine **STATE** snapshot
+  (`STATE|<rules>|<moveCount>|<currentPlayer>|<noCapturePly>|<capturedBlack>|<capturedWhite>|<board>|<lastFrom>|<lastTo>`)
+  instead of a single jump. The challenger **overwrites** its engine from the
+  state, so its board always matches the host's exactly - both players always see
+  every piece.
+- Inbound states are de-duplicated by the monotonic `moveCount`, so stale echoes
+  and duplicates are ignored harmlessly.
+- Received moves are **no longer echoed** back to the sender.
+- The challenger adopts the host's rule preset from the state (if the two devices
+  have different settings) so the two boards are always the same size / layout.
+- The host sends an initial state right when the match starts, so boards align
+  from move one. New Game also re-syncs both sides.
+- Legacy single-move payloads are still parsed as a defensive fallback.
+
+### Files
+- `GameActivity.kt`: `onStateReceived`, `serializeState`, relay flag on
+  `onMovePlayed`, host initial-state push, preset adoption, no-echo receive path.
+- Added `OnlineSyncTest.kt` (4 JVM tests): echo/clean/state protocols keep two
+  peer engines perfectly synchronised across hundreds of moves, including when
+  one peer starts on a different rule preset.
+
 ## v1.2.0 (2026-08-30)
 
 Online multiplayer reworked so players can actually connect over the internet,

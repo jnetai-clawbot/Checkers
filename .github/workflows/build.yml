@@ -77,6 +77,15 @@ jobs:
             - Dark professional theme, works on Samsung S8+ and Pixel 6+
             - Made by jnetai.com
 
+            ### v1.2.1 - Online board-sync fix
+            - Both players now always see both their own and the opponent's
+              pieces in every multiplayer mode / connection method
+            - Online moves are sent as an authoritative full-board state, so the
+              challenger's board always matches the host exactly
+            - The challenger adopts the host's rule preset automatically
+            - Received moves are no longer echoed back; stale/duplicate states
+              are ignored safely
+
             ### v1.2.0 - Online mode over the internet + realistic AI
             - Online multiplayer now uses WebRTC (PeerJS) over public Google
               STUN + openrelay TURN servers, so opponents connect over the

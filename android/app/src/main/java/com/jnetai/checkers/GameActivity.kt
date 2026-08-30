@@ -18,6 +18,7 @@ import com.jnetai.checkers.game.AiEngine
 import com.jnetai.checkers.game.GameDefs
 import com.jnetai.checkers.game.GameEngine
 import com.jnetai.checkers.game.Move
+import com.jnetai.checkers.game.RulePreset
 import com.jnetai.checkers.net.P2PManager
 import com.jnetai.checkers.ui.CheckersBoardView
 import com.jnetai.checkers.utils.ErrorLogger
@@ -43,6 +44,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         const val ROLE_CLIENT = "CLIENT"
 
         const val MSG_NEWGAME = "NEWGAME"
+        const val STATE_PREFIX = "STATE"
 
         // AI realism: minimum "thinking" time before the AI replies and the
         // time it takes the animated piece to glide across the board.
@@ -178,6 +180,15 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         updateInteractive()
         refreshStatus()
         startClock()
+
+        // Online: the host's board is authoritative. Push an initial state so
+        // the challenger's board (and rule preset) matches from the very start.
+        if (mode == MODE_ONLINE && onlineRole == ROLE_HOST) {
+            uiHandler.postDelayed({
+                if (isDestroyed || isFinishing) return@postDelayed
+                P2PManager.sendMove(serializeState())
+            }, 600)
+        }
     }
 
     private fun bindViews() {
@@ -231,7 +242,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         onMovePlayed(move, move.captured.isNotEmpty())
     }
 
-    private fun onMovePlayed(move: Move, didCapture: Boolean) {
+    private fun onMovePlayed(move: Move, didCapture: Boolean, relay: Boolean = true) {
         if (didCapture) {
             SoundEffects.playCapture()
             boardView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
@@ -243,9 +254,10 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         boardView.highlightedSquares = listOf(move.from, move.to)
         refreshStatus()
 
-        // Online: relay the move to the peer.
-        if (mode == MODE_ONLINE) {
-            P2PManager.sendMove(serializeMove(move))
+        // Online: relay the authoritative board state to the peer (only for
+        // moves the local player made - never echo a received move back).
+        if (mode == MODE_ONLINE && relay) {
+            P2PManager.sendMove(serializeState())
         }
 
         val result = engine.getResult()
@@ -324,6 +336,12 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
                 Toast.makeText(this, "Opponent started a new game", Toast.LENGTH_SHORT).show()
                 return@post
             }
+            // Authoritative full-board states are the primary online transport.
+            if (data.startsWith(STATE_PREFIX)) {
+                onStateReceived(data)
+                return@post
+            }
+            // Legacy single-move payload (defensive fallback).
             if (engine.currentPlayer == localPlayer) {
                 ErrorLogger.logf(ErrorLogger.Codes.NET_PROTOCOL,
                     "Peer moved during our turn; ignoring (%s)", data.take(60))
@@ -345,7 +363,110 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             }
             history.addLast(state)
             if (history.size > 400) history.removeFirst()
-            onMovePlayed(move, move.captured.isNotEmpty())
+            onMovePlayed(move, move.captured.isNotEmpty(), relay = false)
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Online move/state serialization
+    // ------------------------------------------------------------------
+
+    /**
+     * Authoritative board-state wire format:
+     * `STATE|<rules>|<moveCount>|<currentPlayer>|<noCapturePly>|<capturedBlack>|<capturedWhite>|<board>|<lastFrom>|<lastTo>`
+     */
+    /** Current engine snapshot as an authoritative peer-state payload. */
+    private fun serializeState(): String {
+        val s = engine.saveState()
+        val hl = boardView.highlightedSquares
+        return buildString {
+            append(STATE_PREFIX).append('|')
+            append(engine.rules.name).append('|')
+            append(s.moveCount).append('|')
+            append(s.currentPlayer).append('|')
+            append(s.noCapturePly).append('|')
+            append(s.capturedBlack).append('|')
+            append(s.capturedWhite).append('|')
+            append(s.board.joinToString(",")).append('|')
+            append(if (hl.size > 0) hl[0] else -1).append('|')
+            append(if (hl.size > 1) hl[1] else -1)
+        }
+    }
+
+    private fun parseBoardState(raw: String, size: Int): IntArray? {
+        val list = raw.split(",").filter { it.isNotBlank() }.mapNotNull { it.toIntOrNull() }
+        if (list.size != size * size) {
+            ErrorLogger.logf(ErrorLogger.Codes.NET_PROTOCOL,
+                "Peer board size mismatch (got %d, expected %d)", list.size, size * size)
+            return null
+        }
+        return list.toIntArray()
+    }
+
+    /** Accept an authoritative state from the peer, adopting its rule preset. */
+    private fun onStateReceived(data: String) {
+        val parts = data.split("|")
+        if (parts.size < 10) {
+            ErrorLogger.logf(ErrorLogger.Codes.NET_PROTOCOL,
+                "Malformed peer state: %s", data.take(120))
+            return
+        }
+        val presetName = parts[1]
+        val incomingCount = parts[2].toIntOrNull() ?: return
+        val nextPlayer = parts[3].toIntOrNull() ?: return
+        val noCapture = parts[4].toIntOrNull() ?: return
+        val capBlack = parts[5].toIntOrNull() ?: return
+        val capWhite = parts[6].toIntOrNull() ?: return
+
+        var adoptedNewRules = false
+        var target = engine
+        if (engine.rules.name != presetName) {
+            val preset = try {
+                RulePreset.valueOf(presetName)
+            } catch (e: Exception) {
+                ErrorLogger.logf(ErrorLogger.Codes.NET_PROTOCOL,
+                    "Unknown rule preset '%s' from peer; using UK / Europe", presetName)
+                RulePreset.UK_EUROPE
+            }
+            ErrorLogger.logf(ErrorLogger.Codes.NET_PROTOCOL,
+                "Peer uses '%s' rules - adopting for the match", preset.displayName)
+            engine = GameEngine(preset)
+            target = engine
+            adoptedNewRules = true
+            history.clear()
+            boardView.attachEngine(engine, null)
+            boardView.reverseBoard = localPlayer == GameDefs.WHITE
+        }
+
+        // De-duplicate stale / echoed states by the monotonic move count.
+        if (!adoptedNewRules && incomingCount <= target.moveCount) {
+            return
+        }
+
+        val board = parseBoardState(parts[7], target.size) ?: return
+        val state = GameEngine.EngineState(
+            board = board,
+            currentPlayer = nextPlayer,
+            moveCount = incomingCount,
+            noCapturePly = noCapture,
+            capturedBlack = capBlack,
+            capturedWhite = capWhite
+        )
+        target.restoreState(state)
+
+        val lastFrom = parts.getOrNull(8)?.toIntOrNull() ?: -1
+        val lastTo = parts.getOrNull(9)?.toIntOrNull() ?: -1
+        boardView.highlightedSquares =
+            if (lastFrom in board.indices && lastTo in board.indices) listOf(lastFrom, lastTo) else emptyList()
+
+        updateCapturedLabel()
+        refreshStatus()
+        updateInteractive()
+        startClock()
+
+        val result = target.getResult()
+        if (result != GameDefs.EMPTY) {
+            handleGameOver(result)
         }
     }
 
@@ -377,18 +498,8 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
     }
 
     // ------------------------------------------------------------------
-    // Move serialization for online play
+    // Legacy move serialization (defensive fallback for peers on v1.2.0)
     // ------------------------------------------------------------------
-
-    private fun serializeMove(move: Move): String {
-        return buildString {
-            append(move.from)
-            append('|')
-            append(move.path.joinToString(","))
-            append('|')
-            append(move.captured.joinToString(","))
-        }
-    }
 
     private fun deserializeMove(data: String): Move? {
         return try {
