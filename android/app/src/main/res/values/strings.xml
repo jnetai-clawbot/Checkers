@@ -19,6 +19,12 @@
     <string name="settings_ai_difficulty">AI Difficulty</string>
     <string name="settings_rules">Game Rules</string>
     <string name="settings_timer">Timer</string>
+    <string name="settings_colours">Colours</string>
+    <string name="settings_player1_colour">Player 1 piece colour</string>
+    <string name="settings_player2_colour">Player 2 piece colour</string>
+    <string name="settings_dark_square_colour">Dark square colour</string>
+    <string name="settings_colours_pieces_different">Choose two different piece colours</string>
+    <string name="settings_sound">Sound effects</string>
     <string name="difficulty_easy">Easy</string>
     <string name="difficulty_medium">Medium</string>
     <string name="difficulty_hard">Hard</string>
@@ -35,12 +41,12 @@
 
     <string name="game_status_your_turn">Your turn — %1$s</string>
     <string name="game_status_ai_turn">AI is thinking…</string>
-    <string name="game_status_white_turn">White to move</string>
-    <string name="game_status_black_turn">Black to move</string>
+    <string name="game_status_white_turn">Player 2 to move</string>
+    <string name="game_status_black_turn">Player 1 to move</string>
     <string name="game_you_won">You win! 🎉</string>
     <string name="game_you_lost">AI wins!</string>
-    <string name="game_white_wins">White wins!</string>
-    <string name="game_black_wins">Black wins!</string>
+    <string name="game_white_wins">Player 2 wins!</string>
+    <string name="game_black_wins">Player 1 wins!</string>
     <string name="game_draw">Draw</string>
     <string name="game_time_up">Time up — %1$s</string>
     <string name="new_game">New Game</string>

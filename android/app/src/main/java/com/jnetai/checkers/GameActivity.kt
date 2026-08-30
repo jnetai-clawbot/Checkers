@@ -562,7 +562,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         gameOver = true
         stopClock()
         val winner = GameDefs.opponent(player)
-        val loser = if (player == GameDefs.BLACK) "Black" else "White"
+        val loser = if (player == GameDefs.BLACK) "Player 1" else "Player 2"
         val subtitle: String
         val title: String
         when {
@@ -623,12 +623,12 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             GameDefs.BLACK -> {
                 title = if (mode == MODE_AI) getString(R.string.game_you_won)
                 else getString(R.string.game_black_wins)
-                note = if (mode == MODE_ONLINE) "Black wins!" else ""
+                note = if (mode == MODE_ONLINE) "Player 1 wins!" else ""
             }
             GameDefs.WHITE -> {
                 title = if (mode == MODE_AI) getString(R.string.game_you_lost)
                 else getString(R.string.game_white_wins)
-                note = if (mode == MODE_ONLINE) "White wins!" else ""
+                note = if (mode == MODE_ONLINE) "Player 2 wins!" else ""
             }
             else -> {
                 title = getString(R.string.game_draw)
@@ -797,7 +797,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
     private fun updateCapturedLabel() {
         val b = engine.getCapturedBlack()
         val w = engine.getCapturedWhite()
-        tvCaptured.text = "Move ${engine.moveCount}\t•\t⚫ $b   ⚪ $w"
+        tvCaptured.text = "Move ${engine.moveCount}\t•\tPlayer 1: $b   Player 2: $w"
     }
 
     private fun refreshStatus() {

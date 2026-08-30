@@ -1,5 +1,34 @@
 # Checkers — Changes
 
+## v1.2.2 (2026-08-30)
+
+Configurable board & piece colours so every piece is always clearly visible.
+
+### What changed
+- The old near-black pieces on dark squares were hard to see. **Default piece
+  colours are now RED (Player 1) and BLUE (Player 2)**, which stand out on both
+  light and dark squares.
+- Added a **Colours** section in Settings:
+  - **Player 1 piece colour** and **Player 2 piece colour** (Red, Blue, Green,
+    Orange, Purple, Cyan, Yellow, White, Black). The two players are kept
+    different so both sides can always be told apart.
+  - **Dark square colour** (Brown default — unchanged from before — plus Dark
+    Grey, Red, Blue, Green, Orange, Purple, Cyan). Light squares stay as they are.
+- Every piece now has a light halo rim so it stays visible on any square colour
+  (pieces can never "disappear" into the board).
+- In-game labels updated from "Black"/"White" to **Player 1 / Player 2**
+  (status, win message, time-up and captured counts) to match the chosen colours.
+- Applies to every mode (vs AI, 2-player, online host/join/Quick Match) since
+  both players share the same board colours.
+
+### Files
+- `utils/BoardColors.kt` (new): piece / square colour palettes.
+- `utils/SettingsManager.kt`: persistent colour settings.
+- `ui/CheckersBoardView.kt`: themed paints + halo rim + `applyTheme()`.
+- `settings/SettingsActivity.kt` + `activity_settings.xml` + `arrays.xml` +
+  `strings.xml`: Colour section with three drop-downs.
+- `GameActivity.kt`, `strings.xml`: Player 1 / Player 2 labels.
+
 ## v1.2.1 (2026-08-30)
 
 Online multiplayer board-sync fix: both players must always see both their own

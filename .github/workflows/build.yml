@@ -77,6 +77,15 @@ jobs:
             - Dark professional theme, works on Samsung S8+ and Pixel 6+
             - Made by jnetai.com
 
+            ### v1.2.2 - Board & piece colours
+            - Default piece colours are now RED (Player 1) and BLUE (Player 2)
+              so every piece is clearly visible on both the light and dark squares
+            - New Colours section in Settings: pick each player's piece colour
+              and the dark square colour (board squares otherwise unchanged)
+            - Every piece has a light halo rim, so pieces stay visible no matter
+              which square colour you choose (no clashing / hidden pieces)
+            - In-game labels now say Player 1 / Player 2 instead of Black / White
+
             ### v1.2.1 - Online board-sync fix
             - Both players now always see both their own and the opponent's
               pieces in every multiplayer mode / connection method

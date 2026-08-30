@@ -16,6 +16,7 @@ import com.jnetai.checkers.game.GameDefs
 import com.jnetai.checkers.game.GameEngine
 import com.jnetai.checkers.game.Move
 import com.jnetai.checkers.utils.ErrorLogger
+import com.jnetai.checkers.utils.SettingsManager
 import kotlin.math.min
 
 /**
@@ -64,24 +65,32 @@ class CheckersBoardView @JvmOverloads constructor(
     private var captureMandatory = false
 
     private val lightPaint = Paint().apply { color = Color.rgb(240, 217, 181) }
-    private val darkPaint = Paint().apply { color = Color.rgb(181, 136, 99) }
-    private val darkAltPaint = Paint().apply { color = Color.rgb(165, 113, 78) }
+
+    // Themed paints (piece colours + dark square colour come from settings, so
+    // pieces are always visible; a light halo rim guarantees contrast).
+    private var darkPaint = Paint().apply { color = Color.rgb(181, 136, 99) }
+    private var darkAltPaint = Paint().apply { color = Color.rgb(165, 113, 78) }
     private val blackRingPaint = Paint().apply {
         style = Paint.Style.STROKE
         strokeWidth = 6f
         color = Color.rgb(20, 20, 22)
     }
-    private val whiteFillPaint = Paint().apply { color = Color.rgb(245, 240, 230) }
-    private val whiteEdgePaint = Paint().apply {
+    private var whiteFillPaint = Paint().apply { color = Color.rgb(245, 240, 230) }
+    private var whiteEdgePaint = Paint().apply {
         style = Paint.Style.STROKE
         strokeWidth = 4f
         color = Color.rgb(191, 179, 160)
     }
-    private val blackFillPaint = Paint().apply { color = Color.rgb(28, 28, 30) }
-    private val blackEdgePaint = Paint().apply {
+    private var blackFillPaint = Paint().apply { color = Color.rgb(28, 28, 30) }
+    private var blackEdgePaint = Paint().apply {
         style = Paint.Style.STROKE
         strokeWidth = 4f
         color = Color.rgb(10, 10, 10)
+    }
+    private val pieceHaloPaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        color = Color.argb(235, 255, 255, 255)
     }
     private val kingMarkPaint = Paint().apply {
         style = Paint.Style.STROKE
@@ -125,6 +134,23 @@ class CheckersBoardView @JvmOverloads constructor(
         isFocusable = true
         isClickable = true
         setLayerType(LAYER_TYPE_SOFTWARE, null)
+        applyTheme()
+    }
+
+    /** Apply the piece / dark-square colours selected in Settings. */
+    fun applyTheme() {
+        val sm = SettingsManager.getInstance(context)
+        val p1 = sm.getPieceColorP1()
+        val p2 = sm.getPieceColorP2()
+        val sq = sm.getBoardDarkSquare()
+
+        darkPaint.color = sq.fill
+        darkAltPaint.color = sq.alt
+        blackFillPaint.color = p1.fill
+        blackEdgePaint.color = p1.edge
+        whiteFillPaint.color = p2.fill
+        whiteEdgePaint.color = p2.edge
+        invalidate()
     }
 
     fun attachEngine(g: GameEngine, interactive: Int?) {
@@ -339,6 +365,7 @@ class CheckersBoardView @JvmOverloads constructor(
             edge = whiteEdgePaint
         }
 
+        canvas.drawCircle(cx, cy, radius + 3f, pieceHaloPaint)
         canvas.drawCircle(cx, cy, radius, fill)
         canvas.drawCircle(cx, cy, radius, edge)
 
@@ -366,6 +393,8 @@ class CheckersBoardView @JvmOverloads constructor(
             edge = whiteEdgePaint
         }
 
+        // Light halo rim keeps the piece visible on any square colour.
+        canvas.drawCircle(cx, cy, radius + 3f, pieceHaloPaint)
         canvas.drawCircle(cx, cy, radius, fill)
         canvas.drawCircle(cx, cy, radius, edge)
 

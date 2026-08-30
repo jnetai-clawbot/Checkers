@@ -155,6 +155,65 @@
             android:layout_marginTop="8dp"
             android:spinnerMode="dropdown" />
 
+        <!-- Colours -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="20dp"
+            android:background="@color/divider" />
+
+        <TextView
+            style="@style/SubtitleTextStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/settings_colours" />
+
+        <TextView
+            android:id="@+id/tvPlayer1Colour"
+            style="@style/BodyTextStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/settings_player1_colour" />
+
+        <Spinner
+            android:id="@+id/spinnerP1Colour"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:spinnerMode="dropdown" />
+
+        <TextView
+            android:id="@+id/tvPlayer2Colour"
+            style="@style/BodyTextStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/settings_player2_colour" />
+
+        <Spinner
+            android:id="@+id/spinnerP2Colour"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:spinnerMode="dropdown" />
+
+        <TextView
+            android:id="@+id/tvDarkSquareColour"
+            style="@style/BodyTextStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/settings_dark_square_colour" />
+
+        <Spinner
+            android:id="@+id/spinnerSquareColour"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:spinnerMode="dropdown" />
+
         <!-- Sound -->
         <View
             android:layout_width="match_parent"
@@ -167,7 +226,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:text="Sound effects"
+            android:text="@string/settings_sound"
             android:textColor="@color/text_primary" />
 
     </LinearLayout>

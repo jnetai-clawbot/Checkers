@@ -6,4 +6,27 @@
         <item>5 min per player</item>
         <item>10 min per player</item>
     </string-array>
+
+    <string-array name="piece_colour_options">
+        <item>Red</item>
+        <item>Blue</item>
+        <item>Green</item>
+        <item>Orange</item>
+        <item>Purple</item>
+        <item>Cyan</item>
+        <item>Yellow</item>
+        <item>White</item>
+        <item>Black</item>
+    </string-array>
+
+    <string-array name="square_colour_options">
+        <item>Brown (default)</item>
+        <item>Dark Grey</item>
+        <item>Red</item>
+        <item>Blue</item>
+        <item>Green</item>
+        <item>Orange</item>
+        <item>Purple</item>
+        <item>Cyan</item>
+    </string-array>
 </resources>
