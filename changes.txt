@@ -1,5 +1,54 @@
 # Checkers — Changes
 
+## v1.5.0 (2026-08-30)
+
+"Never get stuck" hardening: bounded AI search, independent Hint thread,
+stale-AI-reply cancellation and guaranteed board unlock.
+
+### What was wrong
+- On Hard difficulty the alpha-beta search could run for a very long time on a
+  big board (especially International 10x10). During that time the board stayed
+  locked, so a player whose turn it looked like couldn't move, and the Hint
+  button (queued on the same single AI thread) appeared dead / "stuck".
+- Pressing Undo / New Game while the AI was still "thinking" could leave the
+  board permanently locked, because the in-flight AI reply was never cancelled
+  and nothing re-unlocked the board.
+
+### The fix
+- **Bounded AI search**: `AiEngine` now searches inside a node budget
+  (250k Medium / 500k Hard). When the budget runs out the search short-circuits
+  to the heuristic, so the AI always replies within a couple of seconds on any
+  board size - it can never hang a game.
+- **Hint on its own thread**: `doHint()` now uses a separate `hintExecutor` and
+  computes on a **private copy** of the engine, so tapping Hint is always
+  responsive even while the AI is thinking (and never races the live board).
+- **AI thinks on a copy too**: `runAiIfNeeded()` snapshots the position and the
+  worker thread computes on its own `GameEngine`, then posts only the chosen
+  `Move`. The live engine is only ever touched on the UI thread - no thread
+  races, no corrupted boards.
+- **Generation token**: every pending AI reply is tagged with `aiMoveGeneration`.
+  Undo / New Game / Reset bump the token and immediately unlock the board, so a
+  stale reply can never land and re-lock the game.
+- **`updateInteractive()` always unlocks**: whenever the app hands control back
+  to a human player it explicitly unlocks the board, so a playable state can
+  never be left locked.
+- **Watchdog**: if an AI reply is ever mysteriously delayed past 12s, the
+  watchdog force-applies a quick legal fallback move and restores control, so
+  the game can never sit "stuck on the AI".
+
+### Files
+- `game/AiEngine.kt`: node-budgeted alpha-beta (`AtomicLong` budget checked in
+  the negamax node), Hard/Medium budgets.
+- `GameActivity.kt`: `hintExecutor`; copy-engine based AI + Hint; generation
+  token invalidating stale replies on undo/new-game/reset; watchdog; guaranteed
+  unlock in `updateInteractive()`/`resetGame()`/`applyAiMove()`.
+- `GameEngineTest.kt`: new test `ai_search_neverHangsAndReturnsLegalMoveOnBigBoard`
+  (full 10x10 International opening, Hard - must return a legal move < 30s).
+- `app/build.gradle`: `versionCode 8`, `versionName 1.5.0`.
+- `net/PeerTransport.kt`: user agent bumped to `CheckersApp/1.5`.
+
+# Checkers — Changes
+
 ## v1.4.0 (2026-08-30)
 
 Clear, easy-to-read end-of-match and chat colours, plus a full fix of the

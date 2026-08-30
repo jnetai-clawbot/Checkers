@@ -5,6 +5,22 @@ Android game called Checkers
 Project Location /home/jay/Documents/Scripts/AI/openclaw/Android-Apps/Checkers/
 #Free #Mobile #Android  #Full #Single & #MultPlayer #Checkers #Game https://github.com/jnetai-clawbot/Checkers/releases
 
+v1.5.0 — never get stuck (https://github.com/jnetai-clawbot/Checkers/releases)
+1. AI search node-budgeted — Hard always replies in ~a couple of seconds, even on the 10x10 International board (previously could hang). 
+2. Hint now runs on its own thread + board copy, so it always works even while the AI is thinking.
+3. AI "thinks" on a private board copy — Undo / New Game / Resign mid-think cancels the pending reply; the board can never stay locked.
+4. Every player turn explicitly unlocks the board, plus a 12s watchdog force-resolves the AI turn. The game can never sit stuck.
+
+
+v1.4.0 released — https://github.com/jnetai-clawbot/Checkers/releases
+1. Colours — The online end-of-match dialog, the rematch prompt, and the chat all now force a dark background with light-green text (title, message, all buttons, chat log, input, and hints) that's easy to read in any device light/dark mode. New Theme.Checkers_Dialog_End theme + a styleDialogGreen() helper that re-colours the dialogs after they're drawn.
+2. Resign flow fixed — Resigning used to leave the resigning player stuck on a frozen board with no options (only the opponent got the dialog). Now when one player resigns, the match auto-ends for both sides and both players get Rematch / Chat / Quit session. No more being stuck.
+3. Better end-of-match behaviour (per your spec):
+- Rematch — if one player hits it, the other gets a clear Accept / Decline choice; a new game starts only when both agree.
+- Chat — if one player chooses Chat, the other's chat screen auto-opens so they can reply immediately. The chat has Send, Rematch, and Quit buttons (plus Back to the end options).
+- Quit session — either player quitting returns both to the Multiplayer screen.
+CI ran the unit tests + signed release build successfully. APK copied to apk/Checkers.apk and android/apk/Checkers.apk (same keystore — installs over v1.3.0).
+
 
 v1.4.0 changes (release as Checkers.apk, same keystore, installs over v1.3.0):
 1. Resign fix - resigning no longer leaves you stuck: when 1 player resigns the

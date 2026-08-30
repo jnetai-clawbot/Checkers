@@ -427,6 +427,20 @@ class GameEngineTest {
         assertEquals(listOf(26, 12), choice.path)
     }
 
+    @Test
+    fun ai_search_neverHangsAndReturnsLegalMoveOnBigBoard() {
+        // Full 10x10 International opening - the worst case for search width.
+        // The node budget must keep the AI from hanging the game.
+        val g = GameEngine(RulePreset.INTERNATIONAL)
+        val start = System.currentTimeMillis()
+        val choice = AiEngine.chooseMove(g, GameDefs.BLACK, AiDifficulty.HARD)
+        val elapsed = System.currentTimeMillis() - start
+        assertNotNull("AI must return a move on the opening position", choice)
+        assertTrue("AI thinking must be bounded (took ${elapsed}ms)", elapsed < 30_000)
+        val legal = g.generateMoves(GameDefs.BLACK).allLegal
+        assertTrue("AI move must be a legal move", legal.contains(choice))
+    }
+
     // ------------------------------------------------------------------
     // 10. Multiplayer / server-side validation
     // ------------------------------------------------------------------

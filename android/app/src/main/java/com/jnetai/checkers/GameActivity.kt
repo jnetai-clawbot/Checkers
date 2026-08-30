@@ -57,6 +57,10 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         // setting (0-3 seconds, see SettingsManager).
         private const val AI_MOVE_ANIM_MS_PER_HOP = 650L
 
+        // Absolute fallback: if the AI hasn't replied within this long, force a
+        // quick legal move so the board is never left locked ("stuck").
+        private const val AI_REPLY_WATCHDOG_MS = 12_000L
+
         // Set when the local player ends an online match via "Quit session",
         // so OnlineActivity lets them back onto the pairing screen instead of
         // auto-finishing because a game had been started earlier.
@@ -96,8 +100,18 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
     private val aiExecutor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "checkers-ai").apply { priority = Thread.NORM_PRIORITY }
     }
+    // Hint runs on its own thread so tapping Hint is always responsive even
+    // while the AI is busy "thinking" about its reply.
+    private val hintExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "checkers-hint").apply { priority = Thread.NORM_PRIORITY }
+    }
 
-    private var aiThinkStart = 0L
+    /**
+     * Bumped whenever the position changes underneath a pending AI computation
+     * (undo / new game / resign), so a stale AI move is never applied and the
+     * board can never be left locked by an orphaned "AI is thinking".
+     */
+    private var aiMoveGeneration = 0L
 
     // Chess clock state (ms). 0 = disabled.
     private var timerMinutes = 0
@@ -170,6 +184,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         super.onDestroy()
         uiHandler.removeCallbacks(clockTicker)
         try { aiExecutor.shutdownNow() } catch (_: Exception) { }
+        try { hintExecutor.shutdownNow() } catch (_: Exception) { }
         // Tear down the PeerJS transport so a stale session can't linger.
         if (mode == MODE_ONLINE) {
             P2PManager.stop()
@@ -245,6 +260,9 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             MODE_2P -> engine.currentPlayer
             else -> if (localPlayer != GameDefs.EMPTY && engine.currentPlayer == localPlayer) localPlayer else null
         }
+        // Whenever we (re)derive who can interact, hand the board back to the
+        // player: this guarantees a human turn can never be left locked.
+        boardView.setLocked(false)
         boardView.setInteractivePlayer(interactive)
         boardView.refresh()
     }
@@ -305,42 +323,75 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         if (mode != MODE_AI || engine.currentPlayer != GameDefs.WHITE) return
 
         boardView.setLocked(true)
-        aiThinkStart = System.currentTimeMillis()
         tvStatus.text = getString(R.string.game_status_ai_turn)
 
-        val diff: AiDifficulty = settingsManager.getAiDifficulty()
+        // Work on a private engine copy in the background so the live board is
+        // never touched by a worker thread, and tag the reply with the current
+        // generation so an undo / new game can invalidate it.
+        val gen = aiMoveGeneration
+        val snapshot = engine.saveState()
+        val rules = engine.rules
+        val diff = settingsManager.getAiDifficulty()
         aiExecutor.execute {
-            val chosen: Move? = AiEngine.chooseMove(engine, GameDefs.WHITE, diff)
-            // The "thinking" pause is a user setting (0 = instant, otherwise
-            // the AI waits that long then glides its piece across the board).
+            val worker = GameEngine(rules)
+            worker.restoreState(snapshot)
+            val chosen: Move? = AiEngine.chooseMove(worker, GameDefs.WHITE, diff)
             val thinkMs = settingsManager.getAiThinkSeconds() * 1000L
             if (thinkMs <= 0) {
                 uiHandler.post {
                     if (isDestroyed || isFinishing) return@post
-                    applyAiMove(chosen, animate = false)
+                    applyAiMove(chosen, animate = false, gen)
                 }
             } else {
-                val wait = maxOf(0L, thinkMs - (System.currentTimeMillis() - aiThinkStart))
                 uiHandler.postDelayed({
                     if (isDestroyed || isFinishing) return@postDelayed
-                    applyAiMove(chosen, animate = true)
-                }, wait)
+                    applyAiMove(chosen, animate = true, gen)
+                }, thinkMs)
             }
         }
+
+        // Watchdog: whatever happens, the AI turn must resolve. If the reply
+        // never arrives (should be impossible with the node budget), force a
+        // quick legal move so the board never stays locked.
+        uiHandler.postDelayed({
+            if (isDestroyed || isFinishing) return@postDelayed
+            if (gen != aiMoveGeneration || gameOver) return@postDelayed
+            if (mode != MODE_AI || engine.currentPlayer != GameDefs.WHITE) return@postDelayed
+            ErrorLogger.log(ErrorLogger.Codes.AI_SEARCH_FAILED,
+                "AI reply watchdog fired; forcing a fallback move")
+            aiMoveGeneration++
+            boardView.setLocked(false)
+            val fallback = AiEngine.chooseMove(engine, GameDefs.WHITE, AiDifficulty.EASY)
+            applyAiMove(fallback, animate = false, aiMoveGeneration)
+        }, AI_REPLY_WATCHDOG_MS)
     }
 
     /** Apply a computed AI move; glides slowly when [animate] is true. */
-    private fun applyAiMove(chosen: Move?, animate: Boolean) {
+    private fun applyAiMove(chosen: Move?, animate: Boolean, gen: Long) {
+        if (gen != aiMoveGeneration || isDestroyed || isFinishing) {
+            // A stale reply (undo / new game happened) - safely return control.
+            boardView.setLocked(false)
+            updateInteractive()
+            return
+        }
+        if (gameOver) {
+            boardView.setLocked(false)
+            return
+        }
         if (chosen == null) {
             boardView.setLocked(false)
             val r = engine.getResult()
             if (r != GameDefs.EMPTY) handleGameOver(r)
+            else updateInteractive()
             return
         }
         val state = engine.saveState()
         val captured = engine.applyMove(chosen)
         if (captured == null) {
+            ErrorLogger.logf(ErrorLogger.Codes.AI_INVALID_MOVE,
+                "AI move rejected: %s", chosen)
             boardView.setLocked(false)
+            updateInteractive()
             return
         }
         history.addLast(state)
@@ -1051,6 +1102,9 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             return
         }
         if (gameOver) return
+        // Invalidate any in-flight AI reply so it can't land after the undo and
+        // leave the board locked or the position re-plays itself.
+        aiMoveGeneration++
         // AI mode: roll back both the human move and the AI reply.
         val count = if (mode == MODE_AI) 2 else 1
         var undone = 0
@@ -1058,16 +1112,13 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             engine.restoreState(history.removeLast())
             undone++
         }
-        if (undone > 0) {
-            boardView.highlightedSquares = emptyList()
-            refreshStatus()
-            updateCapturedLabel()
+        boardView.highlightedSquares = emptyList()
+        refreshStatus()
+        updateCapturedLabel()
+        if (mode == MODE_AI && engine.currentPlayer == GameDefs.WHITE) {
+            runAiIfNeeded()
+        } else {
             updateInteractive()
-            if (mode == MODE_AI && engine.currentPlayer == GameDefs.WHITE) {
-                runAiIfNeeded()
-            } else {
-                updateInteractive()
-            }
         }
     }
 
@@ -1075,8 +1126,14 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         if (mode != MODE_AI || gameOver) return
         if (engine.currentPlayer != GameDefs.BLACK) return
 
-        aiExecutor.execute {
-            val hintMove = AiEngine.chooseMove(engine, GameDefs.BLACK, settingsManager.getAiDifficulty())
+        // Capture a snapshot on the UI thread, then compute on a private copy
+        // so the hint is always responsive and never touches the live board.
+        val snapshot = engine.saveState()
+        val rules = engine.rules
+        hintExecutor.execute {
+            val hintEngine = GameEngine(rules)
+            hintEngine.restoreState(snapshot)
+            val hintMove = AiEngine.chooseMove(hintEngine, GameDefs.BLACK, settingsManager.getAiDifficulty())
             uiHandler.post {
                 if (isDestroyed || isFinishing || hintMove == null) return@post
                 boardView.highlightedSquares = listOf(hintMove.from, hintMove.to)
@@ -1115,6 +1172,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
     }
 
     private fun resetGame() {
+        aiMoveGeneration++
         gameOver = false
         history.clear()
         engine.reset()
@@ -1122,6 +1180,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         whiteMs = 0L
         elapsedAccumMs = 0L
         boardView.highlightedSquares = emptyList()
+        boardView.setLocked(false)
         updateCapturedLabel()
         updateTimerLabels()
         updateInteractive()

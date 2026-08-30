@@ -2,6 +2,7 @@ package com.jnetai.checkers.game
 
 import com.jnetai.checkers.utils.ErrorLogger
 import kotlin.random.Random
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * AI difficulty levels. Higher levels search deeper with alpha-beta pruning.
@@ -18,6 +19,9 @@ enum class AiDifficulty(val displayName: String, val searchDepth: Int) {
  * EASY: random legal move (jumps preferred for pleasant play).
  * MEDIUM: 4-ply minimax with simple heuristic.
  * HARD: 8-ply alpha-beta with move ordering.
+ *
+ * Every search is capped by a node budget so the AI can never hang the game
+ * on a large board or a locked position - the game must never get stuck.
  */
 object AiEngine {
 
@@ -27,9 +31,15 @@ object AiEngine {
     private const val VAL_BLACK_KING = 260
     private const val VAL_ADVANCE = 3
 
+    // Worst-case search sizes (nodes). Well above anything the unit-test
+    // positions need, but bound the "thinking" on real/big boards so the
+    // AI always answers within a second or two.
+    private const val NODE_BUDGET_MEDIUM = 250_000L
+    private const val NODE_BUDGET_HARD = 500_000L
+
     /**
      * Choose a move for [aiPlayer] on [engine].
-     * Returns null if no legal move exists.
+     * Returns null if no legal move exists. Never blocks the board forever.
      */
     fun chooseMove(engine: GameEngine, aiPlayer: Int, difficulty: AiDifficulty): Move? {
         return try {
@@ -38,8 +48,10 @@ object AiEngine {
 
             when (difficulty) {
                 AiDifficulty.EASY -> pickEasy(legal)
-                AiDifficulty.MEDIUM -> pickSearch(engine, aiPlayer, difficulty.searchDepth, legal)
-                AiDifficulty.HARD -> pickSearch(engine, aiPlayer, difficulty.searchDepth, legal)
+                AiDifficulty.MEDIUM ->
+                    pickSearch(engine, aiPlayer, difficulty.searchDepth, legal, AtomicLong(NODE_BUDGET_MEDIUM))
+                AiDifficulty.HARD ->
+                    pickSearch(engine, aiPlayer, difficulty.searchDepth, legal, AtomicLong(NODE_BUDGET_HARD))
             }
         } catch (e: Exception) {
             ErrorLogger.logf(ErrorLogger.Codes.AI_SEARCH_FAILED,
@@ -55,7 +67,13 @@ object AiEngine {
         return pool[Random.nextInt(pool.size)]
     }
 
-    private fun pickSearch(engine: GameEngine, aiPlayer: Int, depth: Int, legal: List<Move>): Move {
+    private fun pickSearch(
+        engine: GameEngine,
+        aiPlayer: Int,
+        depth: Int,
+        legal: List<Move>,
+        budget: AtomicLong
+    ): Move {
         val rootState = engine.saveState()
         var bestMove: Move? = null
         var bestScore = Int.MIN_VALUE
@@ -74,7 +92,7 @@ object AiEngine {
                     "AI move rejected during search: %s", move)
                 continue
             }
-            val score = -negamax(engine, aiPlayer, depth - 1, -beta, -alpha)
+            val score = -negamax(engine, aiPlayer, depth - 1, -beta, -alpha, budget)
             engine.restoreState(rootState)
             if (score > bestScore) {
                 bestScore = score
@@ -93,11 +111,24 @@ object AiEngine {
 
     /**
      * NegaMax with alpha-beta pruning. Positions are scored from the point of
-     * view of the side to move.
+     * view of the side to move. When the shared [budget] runs out the search
+     * short-circuits to the heuristic so it always finishes in bounded time.
      */
-    private fun negamax(engine: GameEngine, aiPlayer: Int, depth: Int, alphaIn: Int, betaIn: Int): Int {
+    private fun negamax(
+        engine: GameEngine,
+        aiPlayer: Int,
+        depth: Int,
+        alphaIn: Int,
+        betaIn: Int,
+        budget: AtomicLong
+    ): Int {
         var alpha = alphaIn
         val beta = betaIn
+
+        // Hard cap: never blow past the node budget (keeps the AI responsive).
+        if (budget.decrementAndGet() < 0) {
+            return evaluate(engine, aiPlayer)
+        }
 
         // Terminal check.
         val result = engine.getResult()
@@ -128,7 +159,7 @@ object AiEngine {
         for (move in ordered) {
             val applied = engine.applyMove(move)
             if (applied == null) continue
-            val score = -negamax(engine, aiPlayer, depth - 1, -beta, -alpha)
+            val score = -negamax(engine, aiPlayer, depth - 1, -beta, -alpha, budget)
             engine.restoreState(state)
             if (score > best) best = score
             if (score > alpha) alpha = score

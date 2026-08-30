@@ -77,6 +77,21 @@ jobs:
             - Dark professional theme, works on Samsung S8+ and Pixel 6+
             - Made by jnetai.com
 
+            ### v1.5.0 - The game can never get stuck / hang
+            - Fixed: on Hard difficulty (especially on the big International
+              board) the AI could search for a very long time, leaving the
+              board locked with no way to move or use Hint
+            - The AI search now runs inside a node budget, so Hard always
+              replies within a couple of seconds no matter how big the board
+            - Hint now runs on its own background thread, so tapping Hint is
+              always responsive even while the AI is thinking
+            - The AI computes on a private copy of the board, so Undo / New
+              Game / Resign during the AI's "thinking" no longer leave the
+              board locked or replay stale moves - the pending AI reply is
+              cancelled automatically
+            - Every player turn now explicitly unlocks the board, and a safety
+              watchdog force-resolves the AI turn if a reply is ever delayed
+
             ### v1.4.0 - Clear end-match & chat colours + fixed resign flow
             - Resigning now works properly for BOTH players: whoever resigns is
               no longer left stuck - both sides automatically get the end-of-
