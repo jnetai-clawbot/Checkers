@@ -13,6 +13,12 @@
     <color name="accent_red">#FFE53935</color>
     <color name="accent_green">#FF43A047</color>
 
+    <!-- Online end-of-match / chat dialogs: dark background, light green text -->
+    <color name="dialog_text_green">#FF9CFFC0</color>
+    <color name="dialog_text_green_dim">#FF6BA67E</color>
+    <color name="dialog_bg">#FF141414</color>
+    <color name="dialog_surface">#FF202020</color>
+
     <color name="board_light">#FFF0D9B5</color>
     <color name="board_dark">#FFB58863</color>
     <color name="board_dark_alt">#FFA5714E</color>

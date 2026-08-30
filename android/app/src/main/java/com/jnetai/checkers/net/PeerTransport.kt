@@ -69,7 +69,7 @@ object PeerTransport {
             allowContentAccess = true
             cacheMode = WebSettings.LOAD_DEFAULT
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            userAgentString = "$userAgentString CheckersApp/1.3"
+            userAgentString = "$userAgentString CheckersApp/1.4"
             useWideViewPort = true
             loadWithOverviewMode = true
             setSupportZoom(false)

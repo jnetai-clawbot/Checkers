@@ -3,8 +3,29 @@ Checkers
 Android game called Checkers
 
 Project Location /home/jay/Documents/Scripts/AI/openclaw/Android-Apps/Checkers/
-
 #Free #Mobile #Android  #Full #Single & #MultPlayer #Checkers #Game https://github.com/jnetai-clawbot/Checkers/releases
+
+
+v1.4.0 changes (release as Checkers.apk, same keystore, installs over v1.3.0):
+1. Resign fix - resigning no longer leaves you stuck: when 1 player resigns the
+   match auto-ends for BOTH players and both get Rematch / Chat / Quit session.
+2. Rematch is now an explicit Accept / Decline choice - a new game starts only
+   when both players agree.
+3. If 1 player chooses Chat, the other's chat screen opens automatically so they
+   can reply; the chat has Send + Rematch + Quit buttons.
+4. End-of-match dialog, rematch prompt and chat are now dark-background with
+   light-green text (title, message, buttons, log, input) in any light/dark mode.
+
+
+Ready to test.
+v1.3.0 released — https://github.com/jnetai-clawbot/Checkers/releases
+1. Instant player moves — Your moves (and your opponent's moves, online or 2-player) now land on the board instantly. The only pause in the whole game is the AI's reply wait.
+2. AI reply delay setting — New Settings → "AI reply delay" dropdown: Instant (0s), 1s, 2s, 3s (default 2s). With a delay, the AI "thinks" then glides its piece slowly so you can see the move; Instant = immediate with no glide.
+3. Online end-of-match options — Both players now get a dialog with:
+Rematch — if both tap it, a new game starts instantly (mutual handshake via P2P, no return to menu).
+Chat — send/recv messages with a Rematch button inside the chat too.
+Quit session — either player can leave; both return to the Multiplayer screen to host/join/Quick Match again.
+CI ran both unit tests and the signed release build successfully, and I copied the APK to apk/Checkers.apk and android/apk/Checkers.apk (same keystore, installs over v1.2.2).
 
 
 v1.3.0 changes (release as Checkers.apk, same keystore, installs over v1.2.2):

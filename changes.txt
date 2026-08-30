@@ -1,5 +1,48 @@
 # Checkers — Changes
 
+## v1.4.0 (2026-08-30)
+
+Clear, easy-to-read end-of-match and chat colours, plus a full fix of the
+online resign flow so both players always reach the end options.
+
+### What changed
+- **Resign fix**: resigning previously left the resigning player stuck on a
+  frozen board with no options (the end dialog only appeared for the opponent).
+  Now when one player resigns the match **auto-ends for both sides** and both
+  players immediately see Rematch / Chat / Quit session.
+- **Rematch is now an explicit choice**: if one player hits Rematch, the other
+  gets a clear **Accept / Decline** prompt. A new game starts only when both
+  agree (the agreed side broadcasts a `REMATCH_START` so both reset at once).
+- **Auto-open chat**: if one player chooses Chat, the opponent's chat screen
+  opens automatically so they can reply straight away (`OPEN_CHAT` message).
+- **Chat screen buttons**: Send + Rematch + Quit (plus a Back button to return
+  to the end options). Quit returns both players to the Multiplayer screen.
+- **Colours**: the end-of-match dialog and the chat dialog now force a **dark
+  background with light-green text** everywhere - title, message, buttons, chat
+  log, message input and hints - regardless of the device light/dark mode.
+  New `Theme.Checkers_Dialog_End` + `dialog_text_green` palette and a
+  `styleDialogGreen()` helper that guarantees the colours on every rendering.
+
+### Files
+- `GameActivity.kt`:
+  - `doResign()` no longer pre-sets `gameOver`, so `handleGameOver()` runs and
+    shows the end options to the resigning player too.
+  - New P2P messages `REMATCH_START` (both reset together) and `OPEN_CHAT`
+    (peer's chat auto-opens).
+  - Rematch request now shows an Accept/Decline confirmation.
+  - Chat box styled dark/green with Send / Rematch / Quit buttons.
+  - `styleDialogGreen()` applies the dark background + light-green text to the
+    end dialog, rematch confirm and chat dialog after they are shown.
+- `values/colors.xml`: `dialog_text_green`, `dialog_text_green_dim`,
+  `dialog_bg`, `dialog_surface`.
+- `values/themes.xml`: `Theme.Checkers_Dialog_End` (fixed dark + green,
+  non-DayNight) and `CheckersButton_Dialog_Green`.
+- `values/strings.xml`: Accept / Decline / opponent-opened-chat copy.
+- `app/build.gradle`: `versionCode 7`, `versionName 1.4.0`.
+- `net/PeerTransport.kt`: user agent bumped to `CheckersApp/1.4`.
+
+# Checkers — Changes
+
 ## v1.3.0 (2026-08-30)
 
 Instant human moves, a user-configurable AI reply delay, and a proper

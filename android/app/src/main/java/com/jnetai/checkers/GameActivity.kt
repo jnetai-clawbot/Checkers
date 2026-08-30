@@ -2,6 +2,7 @@ package com.jnetai.checkers
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -46,6 +47,8 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         const val MSG_NEWGAME = "NEWGAME"
         const val STATE_PREFIX = "STATE"
         const val MSG_REMATCH = "REMATCH"
+        const val MSG_REMATCH_START = "REMATCH_START"
+        const val MSG_OPEN_CHAT = "OPEN_CHAT"
         const val MSG_CHAT = "CHAT"
         const val MSG_QUIT = "QUIT_SESSION"
 
@@ -118,6 +121,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
     private var rematchRequested = false
     private var peerRematchRequested = false
     private var endDialog: AlertDialog? = null
+    private var confirmDialog: AlertDialog? = null
     private var chatDialog: AlertDialog? = null
     private var chatLog: MutableList<String> = mutableListOf()
     private var chatLogView: TextView? = null
@@ -375,9 +379,24 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
                 Toast.makeText(this, "Opponent started a new game", Toast.LENGTH_SHORT).show()
                 return@post
             }
-            // End-of-session: one side wants a rematch.
+            // End-of-session: one side wants a rematch -> the peer gets a choice.
             if (data == MSG_REMATCH) {
                 handleRematchRequested()
+                return@post
+            }
+            // Both agreed - start the new game on both sides at once.
+            if (data == MSG_REMATCH_START) {
+                startRematch()
+                return@post
+            }
+            // The peer opened the chat - auto-open it here too.
+            if (data == MSG_OPEN_CHAT) {
+                if (gameOver) {
+                    chatLog.add(getString(R.string.opponent_opened_chat))
+                    val alreadyOpen = chatDialog?.isShowing == true
+                    openChat(notify = false)
+                    if (alreadyOpen) renderChat()
+                }
                 return@post
             }
             // Chat message (only exchanged after a match finishes).
@@ -678,12 +697,12 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             GameDefs.BLACK -> {
                 title = if (mode == MODE_AI) getString(R.string.game_you_won)
                 else getString(R.string.game_black_wins)
-                note = if (mode == MODE_ONLINE) "Player 1 wins!" else ""
+                note = ""
             }
             GameDefs.WHITE -> {
                 title = if (mode == MODE_AI) getString(R.string.game_you_lost)
                 else getString(R.string.game_white_wins)
-                note = if (mode == MODE_ONLINE) "Player 2 wins!" else ""
+                note = ""
             }
             else -> {
                 title = getString(R.string.game_draw)
@@ -770,14 +789,16 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             return
         }
         dismissChat()
+        dismissConfirm()
         lastEndTitle = message
-        val b = AlertDialog.Builder(this)
+        val b = AlertDialog.Builder(this, R.style.Theme_Checkers_Dialog_End)
             .setTitle(message)
             .setCancelable(false)
             .setPositiveButton(getString(R.string.rematch)) { _, _ -> requestRematch() }
-            .setNeutralButton(getString(R.string.chat)) { _, _ -> openChat() }
+            .setNeutralButton(getString(R.string.chat)) { _, _ -> openChat(notify = true) }
             .setNegativeButton(getString(R.string.quit_session)) { _, _ -> quitSession() }
         endDialog = b.show()
+        styleDialogGreen(endDialog)
         if (peerRematchRequested) {
             endDialog?.setMessage(getString(R.string.opponent_wants_rematch))
         }
@@ -789,29 +810,41 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         rematchRequested = true
         P2PManager.sendMove(MSG_REMATCH)
         if (peerRematchRequested) {
-            startRematch()
+            sendRematchStart()
         } else {
             toast(getString(R.string.rematch_waiting))
-            endDialog?.findViewById<TextView>(android.R.id.title)
-                ?.text = getString(R.string.rematch_waiting)
         }
     }
 
-    /** The peer asked for a rematch. Start one straight away if we also asked. */
+    /** A rematch is confirmed on our side - tell the peer and start ours. */
+    private fun sendRematchStart() {
+        rematchRequested = false
+        peerRematchRequested = false
+        P2PManager.sendMove(MSG_REMATCH_START)
+        startRematch()
+    }
+
+    /** The peer asked for a rematch - give the player a clear Accept/Decline. */
     private fun handleRematchRequested() {
         if (!gameOver) return
         peerRematchRequested = true
         if (rematchRequested) {
-            startRematch()
+            sendRematchStart()
             return
         }
         toast(getString(R.string.opponent_wants_rematch))
-        endDialog?.setMessage(getString(R.string.opponent_wants_rematch))
-        if (chatDialog?.isShowing == true) {
-            chatLog.add(getString(R.string.opponent_wants_rematch))
-            chatLog.add(getString(R.string.chat_tap_rematch))
-            renderChat()
-        }
+        dismissConfirm()
+        val b = AlertDialog.Builder(this, R.style.Theme_Checkers_Dialog_End)
+            .setTitle(getString(R.string.rematch))
+            .setMessage(getString(R.string.opponent_wants_rematch))
+            .setCancelable(false)
+            .setPositiveButton(getString(R.string.rematch_accept)) { _, _ -> requestRematch() }
+            .setNegativeButton(getString(R.string.rematch_decline)) { _, _ ->
+                peerRematchRequested = false
+                dismissConfirm()
+            }
+        confirmDialog = b.show()
+        styleDialogGreen(confirmDialog)
     }
 
     /** Both players confirmed a rematch - roll the board back and start over. */
@@ -820,6 +853,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         peerRematchRequested = false
         chatLog.clear()
         dismissEndDialog()
+        dismissConfirm()
         dismissChat()
         resetGame()
         toast(getString(R.string.rematch_started))
@@ -836,6 +870,7 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         rematchRequested = false
         peerRematchRequested = false
         dismissEndDialog()
+        dismissConfirm()
         dismissChat()
         sessionReturnToMultiplayer = true
         // Give the QUIT message a moment to flush before tearing down the peer.
@@ -847,16 +882,21 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
 
     // ----- Chat -----
 
-    private fun openChat() {
-        if (mode != MODE_ONLINE) return
+    private fun openChat(notify: Boolean) {
+        if (mode != MODE_ONLINE || gameOver.not()) return
+        if (chatDialog?.isShowing == true) return
         dismissEndDialog()
+        dismissConfirm()
+        if (notify) P2PManager.sendMove(MSG_OPEN_CHAT)
 
         val density = resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
+        val green = getColor(R.color.dialog_text_green)
+        val greenDim = getColor(R.color.dialog_text_green_dim)
 
         val logTv = TextView(this).apply {
             textSize = 14f
-            setTextColor(0xFFD6D6D6.toInt())
+            setTextColor(green)
             setLineSpacing(0f, 1.1f)
             setPadding(dp(6), dp(6), dp(6), dp(6))
         }
@@ -869,22 +909,26 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
         val input = EditText(this).apply {
             hint = getString(R.string.chat_hint)
             maxLines = 2
+            setTextColor(green)
+            setHintTextColor(greenDim)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            setPadding(dp(10), dp(4), dp(10), dp(4))
+            setBackgroundResource(R.drawable.edit_text_background)
+            setPadding(dp(10), dp(2), dp(10), dp(2))
         }
 
-        val btnSend = Button(this).apply { text = getString(R.string.chat_send) }
-        val btnRematch = Button(this).apply { text = getString(R.string.rematch) }
+        val btnSend = styleChatButton(Button(this), getString(R.string.chat_send), green)
+        val btnRematch = styleChatButton(Button(this), getString(R.string.rematch), green)
+        val btnQuit = styleChatButton(Button(this), getString(R.string.quit_session), green)
 
         val buttons = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(btnSend,
-                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            addView(btnRematch,
-                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(btnSend, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(btnRematch, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(btnQuit, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
 
         val root = LinearLayout(this).apply {
+            setBackgroundColor(getColor(R.color.dialog_bg))
             orientation = LinearLayout.VERTICAL
             addView(scroll,
                 LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(170)))
@@ -902,8 +946,12 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             }
         }
         btnRematch.setOnClickListener { requestRematch() }
+        btnQuit.setOnClickListener {
+            P2PManager.sendMove(MSG_QUIT)
+            returnToMultiplayer()
+        }
 
-        chatDialog = AlertDialog.Builder(this)
+        chatDialog = AlertDialog.Builder(this, R.style.Theme_Checkers_Dialog_End)
             .setTitle(getString(R.string.chat))
             .setView(root)
             .setCancelable(false)
@@ -913,7 +961,21 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             }
             .create().also { it.show() }
 
+        styleDialogGreen(chatDialog)
         renderChat()
+    }
+
+    /** Dark button with light-green text (chat controls). */
+    private fun styleChatButton(btn: Button, label: String, green: Int): Button {
+        return btn.apply {
+            text = label
+            setTextColor(green)
+            setBackgroundResource(R.drawable.button_secondary_bg)
+            textSize = 13f
+            setAllCaps(false)
+            setPadding(4, 10, 4, 10)
+            minHeight = 0
+        }
     }
 
     private fun sendChatMessage(text: String) {
@@ -948,6 +1010,27 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
     private fun dismissEndDialog() {
         endDialog?.dismiss()
         endDialog = null
+    }
+
+    private fun dismissConfirm() {
+        confirmDialog?.dismiss()
+        confirmDialog = null
+    }
+
+    /**
+     * Force the dark background + light-green text the user asked for onto any
+     * of our end-of-match / chat AlertDialogs, even if the device theme tries
+     * to re-colour them.
+     */
+    private fun styleDialogGreen(dialog: AlertDialog?) {
+        if (dialog == null) return
+        val green = getColor(R.color.dialog_text_green)
+        dialog.findViewById<TextView>(android.R.id.title)?.setTextColor(green)
+        dialog.findViewById<TextView>(android.R.id.message)?.setTextColor(green)
+        for (id in intArrayOf(android.R.id.button1, android.R.id.button2, android.R.id.button3)) {
+            dialog.findViewById<Button>(id)?.setTextColor(green)
+        }
+        dialog.window?.setBackgroundDrawable(ColorDrawable(getColor(R.color.dialog_bg)))
     }
 
     private fun toast(text: String) {
@@ -1008,8 +1091,6 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
 
     private fun doResign() {
         if (gameOver) return
-        gameOver = true
-        stopClock()
 
         val winner: Int
         when (mode) {
@@ -1020,6 +1101,9 @@ class GameActivity : AppCompatActivity(), P2PManager.Listener {
             }
             else -> winner = GameDefs.opponent(engine.currentPlayer)
         }
+        // Do NOT set gameOver first here: handleGameOver sets it and must run so
+        // the resigning player also sees the end-of-match options (Rematch /
+        // Chat / Quit). Otherwise one side is left stuck with no options.
         handleGameOver(winner)
     }
 
